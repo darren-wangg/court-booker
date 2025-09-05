@@ -4,8 +4,8 @@
   "description": "",
   "main": "check-now.js",
   "scripts": {
-    "check": "node check-now.js",
-    "book": "node check-bookings.js",
+    "check": "node src/scripts/check-now.js",
+    "book": "node src/scripts/check-bookings.js",
     "setup-gmail": "node src/scripts/setup-gmail-auth.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
