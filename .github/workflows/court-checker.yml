@@ -41,11 +41,17 @@ jobs:
             libxrandr2 \
             libgbm1 \
             libxss1 \
-            libasound2t64
+            libasound2t64 \
+            xvfb
 
       - name: Install Puppeteer Chrome
         run: |
           npx puppeteer browsers install chrome
+
+      - name: Start virtual display
+        run: |
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
 
       - name: Determine if email should be sent
         id: email-check
@@ -69,6 +75,8 @@ jobs:
           HEADLESS: true
           # Only send emails at 2 PM (14:00) and 10 PM (22:00) PST
           SEND_EMAIL: ${{ steps.email-check.outputs.should_send }}
+          # Virtual display for Chrome
+          DISPLAY: :99
         run: node src/scripts/check-now.js
 
       - name: Upload logs (if check fails)
