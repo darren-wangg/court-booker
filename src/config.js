@@ -23,6 +23,8 @@ module.exports = {
   // Email notifications
   resendApiKey: process.env.RESEND_API_KEY || '',
   notificationEmail: process.env.NOTIFICATION_EMAIL || '',
+  // Enable email sending for local testing, respect SEND_EMAIL env var if set
+  sendEmail: process.env.SEND_EMAIL !== undefined ? process.env.SEND_EMAIL === 'true' : true,
   
   // Gmail API configuration
   gmailClientId: process.env.GMAIL_CLIENT_ID || '',

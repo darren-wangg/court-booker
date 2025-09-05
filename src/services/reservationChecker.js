@@ -587,8 +587,8 @@ class ReservationChecker {
         return;
       }
 
-      // Check if email sending is enabled via environment variable
-      const shouldSendEmail = process.env.SEND_EMAIL === 'true';
+      // Check if email sending is enabled via configuration
+      const shouldSendEmail = config.sendEmail;
       if (!shouldSendEmail) {
         console.log("📧 Email sending disabled for this run - data collected but no notification sent");
         return;
