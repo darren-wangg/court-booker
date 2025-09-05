@@ -576,6 +576,13 @@ class ReservationChecker {
         return;
       }
 
+      // Check if email sending is enabled via environment variable
+      const shouldSendEmail = process.env.SEND_EMAIL === 'true';
+      if (!shouldSendEmail) {
+        console.log("📧 Email sending disabled for this run - data collected but no notification sent");
+        return;
+      }
+
       const { data, error } = await this.resend.emails.send({
         from: "court booker <onboarding@resend.dev>",
         to: [config.notificationEmail],

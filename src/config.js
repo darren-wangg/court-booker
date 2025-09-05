@@ -14,8 +14,8 @@ module.exports = {
   // Amenity URL
   amenityUrl: process.env.AMENITY_URL || 'https://www.avalonaccess.com/Information/Information/AmenityReservation?amenityKey=dd5c4252-e044-4012-a1e3-ec2e1a8cdddf',
   
-  // Schedule pattern (cron format) - 3 hours
-  schedulePattern: process.env.SCHEDULE_PATTERN || '0 */3 * * *',
+  // Schedule pattern (cron format) - 2 hours for maximum data freshness
+  schedulePattern: process.env.SCHEDULE_PATTERN || '0 */2 * * *',
   
   // Browser configuration
   headless: process.env.HEADLESS_MODE === 'true',

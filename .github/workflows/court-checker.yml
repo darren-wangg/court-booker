@@ -2,8 +2,9 @@ name: Court Availability Checker
 
 on:
   schedule:
-    # Run every 3 hours
-    - cron: "0 */3 * * *"
+    # Run every 2 hours for maximum data freshness within free tier limits
+    # This gives us ~360 runs per month (12 per day)
+    - cron: "0 */2 * * *"
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -32,6 +33,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
 
+      - name: Determine if email should be sent
+        id: email-check
+        run: |
+          # Get current hour in PST (UTC-8) or PDT (UTC-7) depending on daylight saving
+          current_hour_pst=$(TZ='America/Los_Angeles' date +%H)
+          if [ "$current_hour_pst" = "14" ] || [ "$current_hour_pst" = "22" ]; then
+            echo "should_send=true" >> $GITHUB_OUTPUT
+            echo "📧 Email will be sent (PST hour: $current_hour_pst)"
+          else
+            echo "should_send=false" >> $GITHUB_OUTPUT
+            echo "📧 Email disabled for this run (PST hour: $current_hour_pst)"
+          fi
+
       - name: Run court availability check
         env:
           EMAIL: ${{ secrets.EMAIL }}
@@ -39,6 +53,8 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
           HEADLESS: true
+          # Only send emails at 2 PM (14:00) and 10 PM (22:00) PST
+          SEND_EMAIL: ${{ steps.email-check.outputs.should_send }}
         run: node check-now.js
 
       - name: Upload logs (if check fails)
