@@ -19,10 +19,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "18"
-          cache: "npm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.0
 
       - name: Install dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Install Puppeteer dependencies
         run: |
@@ -55,7 +59,7 @@ jobs:
           HEADLESS: true
           # Only send emails at 2 PM (14:00) and 10 PM (22:00) PST
           SEND_EMAIL: ${{ steps.email-check.outputs.should_send }}
-        run: node check-now.js
+        run: node src/scripts/check-now.js
 
       - name: Upload logs (if check fails)
         if: failure()
