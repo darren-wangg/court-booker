@@ -1,0 +1,19 @@
+{
+  "name": "avalon-court-booker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "check-now.js",
+  "scripts": {
+    "check": "node check-now.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.6.0",
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "puppeteer": "^24.18.0",
+    "resend": "^6.0.2"
+  }
+}
