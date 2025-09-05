@@ -1,28 +1,25 @@
-const ReservationScheduler = require('../scheduler');
+const ReservationChecker = require('../services/reservationChecker');
 const config = require('../config');
 
-// Check if credentials are configured
 if (!config.email || !config.password) {
   console.error('❌ Error: credentials not configured!');
   console.error('Please create a .env file with your email and password.');
-  console.error('See .env.example for the required format.\n');
   process.exit(1);
 }
 
 async function checkNow() {
-  const scheduler = new ReservationScheduler();
+  const checker = new ReservationChecker();
   
   try {
-    console.log('🔍 Running immediate availability check...\n');
-    const result = await scheduler.runOnce();
+    console.log('🔍 Running availability check...\n');
+    const result = await checker.checkAvailability();
     
     if (result && result.totalAvailableSlots > 0) {
       console.log('\n✅ Check completed successfully!');
-      console.log(`Found ${result.totalAvailableSlots} available time slots across ${result.dates.length} dates.`);
-    } else if (result) {
-      console.log('\n⚠️  No available time slots found across all dates.');
+    } else {
+      console.log('\n⚠️  No available time slots found.');
     }
-    
+
   } catch (error) {
     console.error('\n❌ Check failed:', error.message);
     process.exit(1);

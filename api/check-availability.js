@@ -1,4 +1,4 @@
-const ReservationChecker = require('../src/reservationChecker');
+const ReservationChecker = require('../src/services/reservationChecker');
 
 export default async function handler(req, res) {
   // Only allow POST requests

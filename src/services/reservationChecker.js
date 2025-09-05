@@ -1,7 +1,7 @@
 const puppeteer = require("puppeteer");
 const { Resend } = require("resend");
-const config = require("./config");
-const { generateEmailHTML } = require("./email/emailTemplate");
+const config = require("../config");
+const { generateEmailHTML } = require("../email-templates/availabilities");
 
 const SIXTY_SECONDS = 60 * 1000;
 const THIRTY_SECONDS = 30 * 1000;

@@ -1,8 +1,25 @@
-# Court Booker Setup
+# Court Reservation Checker
+
+## System Architecture Overview
+
+This project consists of two main systems:
+
+### 1. **Reservation Checker System**
+
+- **Technology**: Puppeteer + GitHub Actions + Resend API
+- **Function**: Monitors court availability every 2 hours
+- **Output**: Email notifications with available time slots
+
+### 2. **Email Booking System**
+
+- **Technology**: Gmail API + Puppeteer + Resend API
+- **Function**: Processes email replies and automatically books courts
+- **Input**: Natural language email replies with date/time
+- **Output**: Confirmation emails with booking status
 
 ## GitHub Actions Deployment
 
-This project uses GitHub Actions for automated scheduling, providing more frequent execution and better reliability.
+This project uses GitHub Actions for automated scheduling, providing more frequent execution and better reliability than traditional cron jobs.
 
 ## Email Integration with Resend
 
@@ -40,6 +57,40 @@ from: 'Court Booker <onboarding@resend.dev>',
 ```javascript
 from: 'Court Booker <noreply@yourdomain.com>',
 ```
+
+## How the Systems Work
+
+### Reservation Checker Process
+
+1. **GitHub Actions Trigger**: Runs every 2 hours automatically
+2. **Browser Launch**: Puppeteer starts headless Chrome
+3. **Login**: Automatically logs into amenity website
+4. **HTML Parsing**: Extracts reservation data from table structures
+5. **Data Analysis**: Compares available vs booked time slots
+6. **Email Report**: Sends formatted availability report (only at 2 PM & 10 PM PST)
+
+### Email Booking Process
+
+1. **Gmail Monitoring**: Checks for replies to availability emails
+2. **Email Parsing**: Extracts date/time from natural language
+3. **Booking Automation**: Uses Puppeteer to fill booking form
+4. **Confirmation**: Sends success/error emails
+
+### Technical Details
+
+**HTML Parsing Strategy**:
+
+- Handles complex nested table structures
+- Manages pagination with "Show More" buttons
+- Extracts date headers and time slots
+- Generates all possible time slots (10 AM - 10 PM)
+
+**Email Parsing Intelligence**:
+
+- Supports multiple date formats (September 7, 2025, 9/7/2025, etc.)
+- Handles various time formats (5 - 6 PM, 17:00 - 18:00, etc.)
+- Uses regex patterns for robust parsing
+- Validates parsed data before booking
 
 ## GitHub Actions Setup
 

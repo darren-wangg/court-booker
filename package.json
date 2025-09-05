@@ -5,6 +5,8 @@
   "main": "check-now.js",
   "scripts": {
     "check": "node check-now.js",
+    "book": "node check-bookings.js",
+    "setup-gmail": "node src/scripts/setup-gmail-auth.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,6 +15,7 @@
   "packageManager": "pnpm@10.6.0",
   "dependencies": {
     "dotenv": "^17.2.2",
+    "googleapis": "^144.0.0",
     "puppeteer": "^24.18.0",
     "resend": "^6.0.2"
   }

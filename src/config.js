@@ -24,6 +24,12 @@ module.exports = {
   resendApiKey: process.env.RESEND_API_KEY || '',
   notificationEmail: process.env.NOTIFICATION_EMAIL || '',
   
+  // Gmail API configuration
+  gmailClientId: process.env.GMAIL_CLIENT_ID || '',
+  gmailClientSecret: process.env.GMAIL_CLIENT_SECRET || '',
+  gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN || '',
+  gmailRedirectUri: process.env.GMAIL_REDIRECT_URI || 'http://localhost:3000/oauth2callback',
+  
   // Timeouts (in milliseconds)
   timeouts: TIMEOUTS,
 };
