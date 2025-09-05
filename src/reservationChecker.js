@@ -577,7 +577,7 @@ class ReservationChecker {
       }
 
       const { data, error } = await this.resend.emails.send({
-        from: "darren <onboarding@resend.dev>",
+        from: "court booker <onboarding@resend.dev>",
         to: [config.notificationEmail],
         subject: "🏀 Avalon Court Availability 🏀",
         html: generateEmailHTML(results),

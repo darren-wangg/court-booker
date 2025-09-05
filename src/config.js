@@ -7,9 +7,9 @@ const TIMEOUTS = {
 }
 
 module.exports = {
-  // Avalon Access credentials
-  email: process.env.AVALON_EMAIL || '',
-  password: process.env.AVALON_PASSWORD || '',
+  // Credentials
+  email: process.env.EMAIL || '',
+  password: process.env.PASSWORD || '',
   
   // Amenity URL
   amenityUrl: process.env.AMENITY_URL || 'https://www.avalonaccess.com/Information/Information/AmenityReservation?amenityKey=dd5c4252-e044-4012-a1e3-ec2e1a8cdddf',

@@ -2,7 +2,7 @@ const ReservationChecker = require('./src/reservationChecker');
 const config = require('./src/config');
 
 if (!config.email || !config.password) {
-  console.error('❌ Error: Avalon Access credentials not configured!');
+  console.error('❌ Error: credentials not configured!');
   console.error('Please create a .env file with your email and password.');
   process.exit(1);
 }

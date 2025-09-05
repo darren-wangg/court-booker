@@ -1,14 +1,15 @@
-# Avalon Court Reservation Checker
+# Court Reservation Checker
 
-An automated tool that checks for available reservation slots on the Avalon Access amenity reservation system.
+An automated tool that checks for available reservation slots on the amenity reservation system. Now powered by GitHub Actions for reliable, free scheduling!
 
 ## Features
 
-- 🔄 Automated login to Avalon Access
+- 🔄 Automated login to amenity website
 - 📅 Checks available dates in the calendar
 - ⏰ Identifies available time slots that are not booked
-- 🕐 Runs on a configurable schedule (default: every 3 hours)
+- 🕐 Runs on a configurable schedule (default: every 3 hours) via GitHub Actions
 - 🚀 Can also run on-demand for immediate checking
+- 📧 Email notifications when slots are available
 
 ## Setup
 
@@ -22,17 +23,26 @@ An automated tool that checks for available reservation slots on the Avalon Acce
    Create a `.env` file in the project root:
 
    ```env
-   AVALON_EMAIL=your-email@example.com
-   AVALON_PASSWORD=your-password
+   EMAIL=your-email@example.com
+   PASSWORD=your-password
+   RESEND_API_KEY=your-resend-api-key
+   NOTIFICATION_EMAIL=your-notification-email@example.com
    ```
 
-3. **Optional configuration:**
+3. **Set up GitHub Actions:**
+
+   - Push this repository to GitHub
+   - Go to your repository Settings → Secrets and variables → Actions
+   - Add these repository secrets:
+     - `EMAIL` - Your email
+     - `PASSWORD` - Your password
+     - `RESEND_API_KEY` - Your Resend API key
+     - `NOTIFICATION_EMAIL` - Email to receive notifications
+
+4. **Optional configuration:**
    You can customize these settings in your `.env` file:
 
    ```env
-   # Schedule pattern (cron format) - default: every 3 hours
-   SCHEDULE_PATTERN=0 */3 * * *
-
    # Run browser in headless mode - default: true
    HEADLESS_MODE=true
 
@@ -42,15 +52,16 @@ An automated tool that checks for available reservation slots on the Avalon Acce
 
 ## Usage
 
-### Run scheduled checks (every 3 hours by default):
+### Automated Scheduling (GitHub Actions)
 
-```bash
-pnpm start
-# or
-node index.js
-```
+The tool automatically runs every 3 hours via GitHub Actions. You can also trigger it manually:
 
-### Run a single check immediately:
+1. Go to your GitHub repository
+2. Click on "Actions" tab
+3. Select "Court Availability Checker" workflow
+4. Click "Run workflow" button
+
+### Run a single check locally:
 
 ```bash
 pnpm check
@@ -60,32 +71,39 @@ node check-now.js
 
 ## How it works
 
-1. **Login**: The tool automatically logs into Avalon Access using your credentials
+1. **Login**: The tool automatically logs into amenity website using your credentials
 2. **Date Selection**: Clicks on the reservation date input to open the calendar
 3. **Available Dates**: Finds all selectable dates (not disabled) in the calendar
 4. **Time Slots**: For the selected date, identifies all booked time slots
 5. **Results**: Reports which time slots are available (not in the booked list)
 
-## Schedule Format
+## Schedule Configuration
 
-The schedule uses cron format. Here are some examples:
+The GitHub Actions workflow runs every 3 hours by default. To change the schedule, edit `.github/workflows/court-checker.yml`:
 
-- `0 */3 * * *` - Every 3 hours (default)
-- `0 */1 * * *` - Every hour
-- `0 9,12,15,18 * * *` - At 9am, 12pm, 3pm, and 6pm
-- `*/30 * * * *` - Every 30 minutes
+```yaml
+schedule:
+  - cron: "0 */3 * * *" # Every 3 hours (current)
+  - cron: "0 */1 * * *" # Every hour
+  - cron: "0 12,15,18,21 * * *" # At 12pm, 3pm, 6pm, and 9pm
+  - cron: "*/30 * * * *" # Every 30 minutes
+```
+
+**Note**: GitHub Actions has a minimum interval of 5 minutes for scheduled workflows.
 
 ## Troubleshooting
 
-- **Login fails**: Verify your credentials in the `.env` file
+- **Login fails**: Verify your credentials in GitHub repository secrets
 - **No dates available**: The calendar might not have any selectable dates
-- **Browser issues**: Try setting `HEADLESS_MODE=false` to see what's happening
+- **GitHub Actions failing**: Check the Actions tab for error logs
+- **Email not sending**: Verify your Resend API key and notification email in repository secrets
 
 ## Notes
 
-- The tool generates time slots from 8 AM to 10 PM by default
+- The tool generates time slots from 10 AM to 10 PM by default
 - You may need to adjust the `generateTimeSlots()` function based on actual amenity hours
-- Currently logs results to console - you can extend it to send notifications
+- Email notifications are sent when available slots are found
+- GitHub Actions provides 2,000 free minutes per month for public repositories
 
 ## Next Steps
 

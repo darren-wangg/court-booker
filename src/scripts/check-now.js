@@ -3,7 +3,7 @@ const config = require('../config');
 
 // Check if credentials are configured
 if (!config.email || !config.password) {
-  console.error('❌ Error: Avalon Access credentials not configured!');
+  console.error('❌ Error: credentials not configured!');
   console.error('Please create a .env file with your email and password.');
   console.error('See .env.example for the required format.\n');
   process.exit(1);

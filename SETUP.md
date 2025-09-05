@@ -1,4 +1,8 @@
-# Avalon Court Booker Setup
+# Court Booker Setup
+
+## GitHub Actions Deployment
+
+This project uses GitHub Actions for automated scheduling, providing more frequent execution and better reliability.
 
 ## Email Integration with Resend
 
@@ -24,7 +28,7 @@ Resend requires a verified domain to send emails. You have two options:
 3. Update the `from` field in `src/reservationChecker.js` line 532:
 
 ```javascript
-from: 'Avalon Court Booker <onboarding@resend.dev>',
+from: 'Court Booker <onboarding@resend.dev>',
 ```
 
 #### Option B: Use Your Own Domain (Recommended)
@@ -34,41 +38,38 @@ from: 'Avalon Court Booker <onboarding@resend.dev>',
 3. Update the `from` field to use your domain:
 
 ```javascript
-from: 'Avalon Court Booker <noreply@yourdomain.com>',
+from: 'Court Booker <noreply@yourdomain.com>',
 ```
 
-## Vercel Deployment
+## GitHub Actions Setup
 
-### 1. Install Vercel CLI
+### 1. Push to GitHub
 
 ```bash
-npm i -g vercel
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USERNAME/court-booker.git
+git push -u origin main
 ```
 
-### 2. Deploy to Vercel
+### 2. Set Repository Secrets
 
-```bash
-vercel
-```
+In your GitHub repository:
 
-### 3. Set Environment Variables
+1. Go to **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret** and add:
 
-In your Vercel dashboard, add these environment variables:
-
-- `AVALON_EMAIL` - Your Avalon Access email
-- `AVALON_PASSWORD` - Your Avalon Access password
+- `EMAIL` - Your email
+- `PASSWORD` - Your password
 - `RESEND_API_KEY` - Your Resend API key
 - `NOTIFICATION_EMAIL` - Email to receive notifications
 
-### 4. Test the Deployment
+### 3. Test the Workflow
 
-```bash
-# Test the API endpoint
-curl -X POST https://your-app.vercel.app/api/check-availability
-
-# Test the cron job
-curl https://your-app.vercel.app/api/cron
-```
+1. Go to the **Actions** tab in your repository
+2. Select "Court Availability Checker" workflow
+3. Click **Run workflow** to test manually
+4. Check the logs to ensure everything works correctly
 
 ## Local Testing
 
@@ -79,42 +80,39 @@ curl https://your-app.vercel.app/api/cron
 pnpm check
 ```
 
-### Test API Endpoint Locally
+## Schedule Configuration
 
-```bash
-# Start Vercel dev server
-vercel dev
+The GitHub Actions workflow runs every 3 hours by default. To modify the schedule, edit `.github/workflows/court-checker.yml`:
 
-# Test the endpoint
-curl -X POST http://localhost:3000/api/check-availability
+```yaml
+schedule:
+  - cron: "0 */3 * * *" # Every 3 hours (current)
+  - cron: "0 */6 * * *" # Every 6 hours
+  - cron: "0 9,15,21 * * *" # At 9 AM, 3 PM, and 9 PM daily
+  - cron: "0 9 * * *" # Once daily at 9 AM
 ```
 
-## Cron Schedule
-
-The cron job runs every 3 hours (`0 */3 * * *`). You can modify this in `vercel.json`:
-
-- `0 */3 * * *` - Every 3 hours
-- `0 */6 * * *` - Every 6 hours
-- `0 9,15,21 * * *` - At 9 AM, 3 PM, and 9 PM daily
-- `0 9 * * *` - Once daily at 9 AM
+**Note**: GitHub Actions has a minimum interval of 5 minutes for scheduled workflows.
 
 ## Troubleshooting
 
 ### Email Not Sending
 
-1. Check your Resend API key is correct
-2. Verify your domain is set up properly
+1. Check your Resend API key is correct in GitHub repository secrets
+2. Verify your domain is set up properly in Resend dashboard
 3. Check the `from` email address matches your verified domain
-4. Look at Vercel function logs for error messages
+4. Look at GitHub Actions logs for error messages
 
-### Cron Job Not Running
+### GitHub Actions Not Running
 
-1. Check Vercel cron logs in the dashboard
-2. Verify `CRON_SECRET` environment variable is set
-3. Make sure the cron schedule is valid
+1. Check the Actions tab in your GitHub repository
+2. Verify all repository secrets are set correctly
+3. Make sure the cron schedule is valid (minimum 5 minutes)
+4. Check if your repository is public (required for free GitHub Actions)
 
-### Puppeteer Issues on Vercel
+### Puppeteer Issues in GitHub Actions
 
-1. Vercel has a 60-second timeout limit
-2. The app is configured to run headless by default
+1. GitHub Actions has a 6-hour timeout limit (much better than Vercel's 60 seconds)
+2. The workflow installs Chrome dependencies automatically
 3. If you get timeout errors, try reducing the timeout values in `src/config.js`
+4. Check the Actions logs for detailed error messages

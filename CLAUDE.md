@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is an automated Avalon Access amenity reservation checker that monitors court availability and can run on a schedule. The system uses Puppeteer to automate login and scrape reservation data from the Avalon Access website.
+This is an automated amenity reservation checker that monitors court availability and can run on a schedule. The system uses Puppeteer to automate login and scrape reservation data from the amenity website.
 
 ## Development Commands
 
 ### Running the application
+
 ```bash
 # Run scheduled checks (every 3 hours by default)
 pnpm start
@@ -22,6 +23,7 @@ node check-now.js
 ```
 
 ### Package management
+
 ```bash
 # Install dependencies
 pnpm install
@@ -34,6 +36,7 @@ pnpm install
 ### Core Components
 
 1. **ReservationChecker** (`src/reservationChecker.js`) - Main automation engine
+
    - Handles browser automation with Puppeteer
    - Manages login flow with dynamic form field detection
    - Scrapes reservation data by paginating through "show more" links
@@ -41,6 +44,7 @@ pnpm install
    - Provides comprehensive availability reporting
 
 2. **ReservationScheduler** (`src/scheduler.js`) - Scheduling system
+
    - Uses node-cron for scheduled execution
    - Validates cron patterns
    - Handles graceful shutdown (SIGINT)
@@ -68,12 +72,14 @@ pnpm install
 ## Environment Configuration
 
 Required `.env` file:
+
 ```env
-AVALON_EMAIL=your-email@example.com
-AVALON_PASSWORD=your-password
+EMAIL=your-email@example.com
+PASSWORD=your-password
 ```
 
 Optional configuration:
+
 ```env
 SCHEDULE_PATTERN=0 */3 * * *  # Cron format
 HEADLESS_MODE=true           # Browser visibility
