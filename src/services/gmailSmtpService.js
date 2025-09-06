@@ -9,7 +9,7 @@ class GmailSmtpService {
   async initialize() {
     try {
       // Create transporter using Gmail SMTP
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: config.gmailSmtpUser, // Your Gmail address
