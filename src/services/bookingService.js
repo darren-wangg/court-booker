@@ -146,32 +146,36 @@ class BookingService {
       const targetYear = targetDate.getFullYear();
       
       console.log(`Looking for date: ${targetMonth + 1}/${targetDay}/${targetYear}`);
+      console.log(`Target date object:`, targetDate);
+      console.log(`Target date ISO string:`, targetDate.toISOString());
       
-      // Find the correct date cell in the calendar
-      const dateCell = await this.page.evaluate((day, month, year) => {
+      // Find and click the correct date cell in the calendar
+      const dateFound = await this.page.evaluate((day, month, year) => {
         const cells = document.querySelectorAll('.ui-datepicker-calendar td[data-handler="selectDay"]');
+        
+        console.log(`Looking for: day=${day}, month=${month}, year=${year}`);
+        console.log(`Found ${cells.length} date cells in calendar`);
         
         for (const cell of cells) {
           const cellMonth = parseInt(cell.getAttribute('data-month'));
           const cellYear = parseInt(cell.getAttribute('data-year'));
           const cellDay = parseInt(cell.querySelector('a').textContent);
           
+          console.log(`Calendar cell: ${cellMonth + 1}/${cellDay}/${cellYear}`);
+          
           // Note: data-month is 0-based, so we need to add 1 to compare with targetMonth
           if (cellMonth === month && cellYear === year && cellDay === day) {
-            return cell;
+            console.log(`Found matching date! Clicking...`);
+            cell.click();
+            return true;
           }
         }
-        return null;
+        return false;
       }, targetDay, targetMonth, targetYear);
       
-      if (!dateCell) {
+      if (!dateFound) {
         throw new Error(`Date ${targetMonth + 1}/${targetDay}/${targetYear} not found in calendar`);
       }
-      
-      // Click on the date cell
-      await this.page.evaluate((cell) => {
-        cell.click();
-      }, dateCell);
       
       // Wait for calendar to close
       await this.page.waitForTimeout(1000);

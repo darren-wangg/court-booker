@@ -40,7 +40,9 @@ class EmailParser {
    */
   parseDate(text) {
     const datePatterns = [
-      // "September 7, 2025" or "Sep 7, 2025"
+      // "Friday September 7, 2025" or "Friday Sep 7, 2025"
+      /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i,
+      // "September 7, 2025" or "Sep 7, 2025" (fallback for old format)
       /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i,
       // "9/7/2025" or "09/07/2025"
       /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
@@ -54,9 +56,12 @@ class EmailParser {
         try {
           let dateStr;
           if (pattern === datePatterns[0]) {
-            // Month name format
-            dateStr = `${match[1]} ${match[2]}, ${match[3]}`;
+            // Day of week + Month name format: "Friday September 7, 2025"
+            dateStr = `${match[2]} ${match[3]}, ${match[4]}`;
           } else if (pattern === datePatterns[1]) {
+            // Month name format: "September 7, 2025" (fallback)
+            dateStr = `${match[1]} ${match[2]}, ${match[3]}`;
+          } else if (pattern === datePatterns[2]) {
             // MM/DD/YYYY format
             dateStr = `${match[1]}/${match[2]}/${match[3]}`;
           } else {
@@ -183,7 +188,7 @@ class EmailParser {
       const response = await this.gmail.users.messages.list({
         userId: 'me',
         maxResults: maxResults,
-        q: 'is:unread' // Only unread emails
+        q: 'in:inbox',
       });
 
       return response.data.messages || [];
@@ -240,23 +245,6 @@ class EmailParser {
   }
 
   /**
-   * Mark email as read
-   */
-  async markAsRead(messageId) {
-    try {
-      await this.gmail.users.messages.modify({
-        userId: 'me',
-        id: messageId,
-        resource: {
-          removeLabelIds: ['UNREAD']
-        }
-      });
-    } catch (error) {
-      console.error('Error marking email as read:', error);
-    }
-  }
-
-  /**
    * Check for new booking requests for all users
    */
   async checkForBookingRequests() {
@@ -291,9 +279,6 @@ class EmailParser {
               user: user,
               booking: bookingRequest,
             });
-            
-            // Mark as read
-            await this.markAsRead(message.id);
           } else {
             console.log(`❌ Failed to parse booking request: ${bookingRequest.error}`);
           }
@@ -311,12 +296,17 @@ class EmailParser {
    * Identify which user a booking request belongs to based on email sender
    */
   identifyUserFromEmail(email) {
-    const senderEmail = email.from.toLowerCase();
+    // Extract email address from "Name <email@domain.com>" format
+    const emailMatch = email.from.match(/<([^>]+)>/) || email.from.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    const senderEmail = emailMatch ? emailMatch[1].toLowerCase() : email.from.toLowerCase();
+    
+    console.log(`🔍 Identifying user for email: ${email.from} -> ${senderEmail}`);
     
     // Check each configured user
     for (const user of config.users) {
       if (senderEmail === user.email.toLowerCase() || 
           senderEmail === user.notificationEmail.toLowerCase()) {
+        console.log(`✅ Matched user: ${user.email}`);
         return user;
       }
     }
@@ -331,6 +321,8 @@ class EmailParser {
       };
     }
     
+    console.log(`❌ No user match found for: ${senderEmail}`);
+    console.log(`Available users:`, config.users.map(u => u.email));
     return null;
   }
 }

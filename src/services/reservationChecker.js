@@ -482,13 +482,14 @@ class ReservationChecker {
       const monthName = monthNames[date.getMonth()];
       const day = date.getDate().toString();
       const year = date.getFullYear();
+      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
 
       days.push({
         date: date,
         day: day,
         monthName: monthName,
         year: year,
-        fullDate: `${monthName} ${day}, ${year}`,
+        fullDate: `${dayOfWeek} ${monthName} ${day}, ${year}`,
       });
     }
 

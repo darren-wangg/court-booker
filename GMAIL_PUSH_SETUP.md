@@ -54,10 +54,7 @@ Copy the HTTPS URL (e.g., `https://abc123.ngrok.io`)
 
 For production, deploy your webhook server to a service like:
 
-- **Heroku** (free tier available)
 - **Railway** (free tier available)
-- **Render** (free tier available)
-- **DigitalOcean App Platform**
 
 ## Step 3: Configure Environment Variables
 
