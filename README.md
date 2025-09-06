@@ -1,6 +1,6 @@
 # Court Reservation Checker
 
-A two-part automated system that checks for available court reservations and enables email-based booking. Powered by Puppeteer, GitHub Actions, and Gmail API for a seamless reservation making experience.
+A two-part automated system that checks for available court reservations and enables email-based booking. Powered by Puppeteer, GitHub Actions, Gmail API, and Gmail SMTP for a seamless reservation making experience.
 
 ## System Overview
 
@@ -45,23 +45,50 @@ This system consists of two main components:
    Create a `.env` file in the project root:
 
    ```env
+   # Amenity website credentials
    EMAIL=your-email@example.com
    PASSWORD=your-password
-   RESEND_API_KEY=your-resend-api-key
+
+   # Gmail SMTP for sending emails
+   GMAIL_SMTP_USER=your-gmail@gmail.com
+   GMAIL_SMTP_PASSWORD=your-16-character-app-password
+
+   # Notification email (where availability emails are sent)
    NOTIFICATION_EMAIL=your-notification-email@example.com
+
+   # Gmail API for receiving booking requests
+   GMAIL_CLIENT_ID=your_gmail_client_id
+   GMAIL_CLIENT_SECRET=your_gmail_client_secret
+   GMAIL_REFRESH_TOKEN=your_gmail_refresh_token
    ```
 
-3. **Set up GitHub Actions:**
+3. **Set up Gmail SMTP:**
+
+   - Enable 2-Factor Authentication on your Gmail account
+   - Generate an App-Specific Password for "Court Booker"
+   - Add the credentials to your `.env` file
+
+4. **Set up Gmail API:**
+
+   ```bash
+   pnpm run setup-gmail
+   ```
+
+5. **Set up GitHub Actions:**
 
    - Push this repository to GitHub
    - Go to your repository Settings → Secrets and variables → Actions
    - Add these repository secrets:
-     - `EMAIL` - Your email
-     - `PASSWORD` - Your password
-     - `RESEND_API_KEY` - Your Resend API key
+     - `EMAIL` - Your amenity website email
+     - `PASSWORD` - Your amenity website password
+     - `GMAIL_SMTP_USER` - Your Gmail address
+     - `GMAIL_SMTP_PASSWORD` - Your Gmail app-specific password
      - `NOTIFICATION_EMAIL` - Email to receive notifications
+     - `GMAIL_CLIENT_ID` - Your Gmail API client ID
+     - `GMAIL_CLIENT_SECRET` - Your Gmail API client secret
+     - `GMAIL_REFRESH_TOKEN` - Your Gmail API refresh token
 
-4. **Optional configuration:**
+6. **Optional configuration:**
    You can customize these settings in your `.env` file:
 
    ```env
@@ -112,9 +139,9 @@ node check-now.js
 ### Technical Architecture
 
 ```
-GitHub Actions (Every 2hrs) → Puppeteer → Amenity Site → HTML Parsing → Email Report
-                                                                    ↓
-User Reply → Gmail API → Email Parser → Booking Service → Puppeteer → Confirmation
+GitHub Actions (Every 2hrs) → Puppeteer → Amenity Site → HTML Parsing → Gmail SMTP → Email Report
+                                                                              ↓
+User Reply → Gmail API → Email Parser → Booking Service → Puppeteer → Gmail SMTP → Confirmation
 ```
 
 ## Schedule Configuration
@@ -138,7 +165,7 @@ schedule:
 - **Login fails**: Verify your credentials in GitHub repository secrets
 - **No dates available**: The calendar might not have any selectable dates
 - **GitHub Actions failing**: Check the Actions tab for error logs
-- **Email not sending**: Verify your Resend API key and notification email in repository secrets
+- **Email not sending**: Verify your Gmail SMTP credentials and notification email in repository secrets
 
 ## Notes
 

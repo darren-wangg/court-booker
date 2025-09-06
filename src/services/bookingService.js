@@ -2,9 +2,10 @@ const puppeteer = require("puppeteer");
 const config = require('../config');
 
 class BookingService {
-  constructor() {
+  constructor(userId = null) {
     this.browser = null;
     this.page = null;
+    this.user = config.getUser(userId);
   }
 
   async initialize() {
@@ -51,10 +52,10 @@ class BookingService {
       );
 
       const emailSelector = await this.findEmailField();
-      await this.page.type(emailSelector, config.email);
+      await this.page.type(emailSelector, this.user.email);
 
       const passwordSelector = await this.findPasswordField();
-      await this.page.type(passwordSelector, config.password);
+      await this.page.type(passwordSelector, this.user.password);
 
       const submitButton = await this.findSubmitButton();
       await Promise.all([

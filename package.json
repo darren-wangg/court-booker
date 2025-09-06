@@ -7,6 +7,8 @@
     "check": "node src/scripts/check-now.js",
     "book": "node src/scripts/check-bookings.js",
     "setup-gmail": "node src/scripts/setup-gmail-auth.js",
+    "check-user": "node src/scripts/check-now.js",
+    "book-user": "node src/scripts/check-bookings.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,7 +18,7 @@
   "dependencies": {
     "dotenv": "^17.2.2",
     "googleapis": "^144.0.0",
-    "puppeteer": "^24.18.0",
-    "resend": "^6.0.2"
+    "nodemailer": "^6.9.8",
+    "puppeteer": "^24.18.0"
   }
 }

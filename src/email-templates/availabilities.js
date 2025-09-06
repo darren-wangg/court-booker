@@ -14,7 +14,7 @@ function generateEmailHTML(results) {
     <div style="font-family: Helvetica, sans-serif; max-width: 600px; margin: 0 auto;">
       <p>
         <strong>Checked on:</strong>
-        <p>${checkTime} EST</p>
+        <p>${checkTime} PST</p>
       </p>
       <p><strong>Total Available Slots:</strong> ${totalAvailableSlots}</p>
       

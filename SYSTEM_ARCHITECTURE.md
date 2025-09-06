@@ -26,7 +26,7 @@ This document provides a comprehensive technical overview of the Avalon Court Bo
          │                        │                        │
          ▼                        ▼                        ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Resend API    │    │   Availability   │    │   Time Slot     │
+│   Gmail SMTP    │    │   Availability   │    │   Time Slot     │
 │   Email Service │    │   Report         │    │   Analysis      │
 │   (HTML Format) │    │   Generator      │    │   (10AM-10PM)   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
@@ -125,7 +125,7 @@ This document provides a comprehensive technical overview of the Avalon Court Bo
 4. **Data Collection**: Parse all reservation tables
 5. **Analysis**: Compare available vs booked slots
 6. **Reporting**: Generate HTML email report
-7. **Delivery**: Send via Resend API (if scheduled time)
+7. **Delivery**: Send via Gmail SMTP (if scheduled time)
 
 ### Booking Processing Flow
 
@@ -166,7 +166,8 @@ HEADLESS_MODE=true
 
 - `EMAIL`: Amenity website login email
 - `PASSWORD`: Amenity website password
-- `RESEND_API_KEY`: Resend API key for email sending
+- `GMAIL_SMTP_USER`: Gmail address for sending emails
+- `GMAIL_SMTP_PASSWORD`: Gmail app-specific password
 - `NOTIFICATION_EMAIL`: Email address for notifications
 - `GMAIL_CLIENT_ID`: Gmail API client ID
 - `GMAIL_CLIENT_SECRET`: Gmail API client secret

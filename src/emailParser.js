@@ -2,14 +2,15 @@ const { google } = require('googleapis');
 const config = require('./config');
 
 class EmailParser {
-  constructor() {
+  constructor(userId = null) {
     this.gmail = null;
     this.oauth2Client = null;
+    this.user = config.getUser(userId);
   }
 
   async initialize() {
     try {
-      // Initialize OAuth2 client
+      // Initialize OAuth2 client using master Gmail configuration
       this.oauth2Client = new google.auth.OAuth2(
         config.gmailClientId,
         config.gmailClientSecret,
@@ -256,13 +257,13 @@ class EmailParser {
   }
 
   /**
-   * Check for new booking requests
+   * Check for new booking requests for all users
    */
   async checkForBookingRequests() {
     try {
       console.log('🔍 Checking for new booking requests...');
       
-      const messages = await this.getRecentEmails(5);
+      const messages = await this.getRecentEmails(10);
       const bookingRequests = [];
 
       for (const message of messages) {
@@ -272,14 +273,23 @@ class EmailParser {
         if (email.subject.includes('Re:') && email.subject.includes('Avalon Court Availability')) {
           console.log(`📧 Found potential booking request: ${email.subject}`);
           
+          // Determine which user this booking request belongs to
+          const user = this.identifyUserFromEmail(email);
+          
+          if (!user) {
+            console.log(`⚠️ Could not identify user for email: ${email.from}`);
+            continue;
+          }
+          
           const bookingRequest = this.parseBookingRequest(email.body);
           
           if (bookingRequest.success) {
-            console.log(`✅ Parsed booking request: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
+            console.log(`✅ Parsed booking request for ${user.email}: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
             bookingRequests.push({
               emailId: message.id,
               email: email,
-              booking: bookingRequest
+              user: user,
+              booking: bookingRequest,
             });
             
             // Mark as read
@@ -295,6 +305,33 @@ class EmailParser {
       console.error('Error checking for booking requests:', error);
       throw error;
     }
+  }
+
+  /**
+   * Identify which user a booking request belongs to based on email sender
+   */
+  identifyUserFromEmail(email) {
+    const senderEmail = email.from.toLowerCase();
+    
+    // Check each configured user
+    for (const user of config.users) {
+      if (senderEmail === user.email.toLowerCase() || 
+          senderEmail === user.notificationEmail.toLowerCase()) {
+        return user;
+      }
+    }
+    
+    // Fallback to legacy single user
+    if (config.email && senderEmail === config.email.toLowerCase()) {
+      return {
+        id: 1,
+        email: config.email,
+        password: config.password,
+        notificationEmail: config.notificationEmail || config.email,
+      };
+    }
+    
+    return null;
   }
 }
 

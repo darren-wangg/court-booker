@@ -1,14 +1,12 @@
-const { Resend } = require('resend');
 const EmailParser = require('./emailParser');
 const BookingService = require('./services/bookingService');
-const config = require('./config');
+const EmailService = require('./services/emailService');
 const { generateBookingConfirmationHTML, generateBookingErrorHTML } = require('./email-templates/booking');
 
 class EmailBookingHandler {
   constructor() {
-    this.emailParser = new EmailParser();
-    this.bookingService = new BookingService();
-    this.resend = new Resend(config.resendApiKey);
+    this.emailParser = new EmailParser(); // No userId needed - processes all users
+    this.emailService = new EmailService();
   }
 
   async initialize() {
@@ -24,29 +22,30 @@ class EmailBookingHandler {
   /**
    * Send confirmation email after successful booking
    */
-  async sendConfirmationEmail(bookingResult) {
+  async sendConfirmationEmail(bookingResult, user) {
     try {
-      if (!config.resendApiKey || !config.notificationEmail) {
-        console.log('Email not configured - skipping confirmation email');
+      if (!user.notificationEmail) {
+        console.log('User notification email not configured - skipping confirmation email');
         return;
       }
 
-      const { bookingRequest, result } = bookingResult;
+      const { bookingRequest, result: bookingResult } = bookingResult;
       
       const subject = `✅ Court Booking Confirmed - ${bookingRequest.formatted.date}`;
       const html = generateBookingConfirmationHTML(bookingResult);
 
-      const { data, error } = await this.resend.emails.send({
-        from: "court booker <onboarding@resend.dev>",
-        to: [config.notificationEmail],
+      await this.emailService.initialize();
+
+      const result = await this.emailService.sendEmail({
+        to: user.notificationEmail,
         subject: subject,
         html: html,
       });
 
-      if (error) {
-        console.error("Failed to send confirmation email:", error);
+      if (result.success) {
+        console.log("✅ Confirmation email sent successfully");
       } else {
-        console.log("✅ Confirmation email sent successfully:", data);
+        console.error("Failed to send confirmation email:", result.error);
       }
     } catch (error) {
       console.error("Error sending confirmation email:", error);
@@ -56,27 +55,28 @@ class EmailBookingHandler {
   /**
    * Send error notification email
    */
-  async sendErrorEmail(bookingRequest, error) {
+  async sendErrorEmail(bookingRequest, error, user) {
     try {
-      if (!config.resendApiKey || !config.notificationEmail) {
-        console.log('Email not configured - skipping error email');
+      if (!user.notificationEmail) {
+        console.log('User notification email not configured - skipping error email');
         return;
       }
 
       const subject = `❌ Court Booking Failed - ${bookingRequest.formatted.date}`;
       const html = generateBookingErrorHTML(bookingRequest, error);
 
-      const { data, error: emailError } = await this.resend.emails.send({
-        from: "court booker <onboarding@resend.dev>",
-        to: [config.notificationEmail],
+      await this.emailService.initialize();
+
+      const result = await this.emailService.sendEmail({
+        to: user.notificationEmail,
         subject: subject,
         html: html,
       });
 
-      if (emailError) {
-        console.error("Failed to send error email:", emailError);
+      if (result.success) {
+        console.log("✅ Error email sent successfully");
       } else {
-        console.log("✅ Error email sent successfully:", data);
+        console.error("Failed to send error email:", result.error);
       }
     } catch (error) {
       console.error("Error sending error email:", error);
@@ -88,22 +88,28 @@ class EmailBookingHandler {
    */
   async processBookingRequest(bookingRequest) {
     try {
-      console.log(`🔄 Processing booking request: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
+      const user = bookingRequest.user;
+      console.log(`🔄 Processing booking request for ${user.email}: ${bookingRequest.booking.formatted.date} at ${bookingRequest.booking.formatted.time}`);
       
-      const bookingResult = await this.bookingService.bookTimeSlot(bookingRequest.booking);
+      // Create a booking service instance for this specific user
+      const bookingService = new BookingService(user.id);
+      await bookingService.initialize();
+      
+      const bookingResult = await bookingService.bookTimeSlot(bookingRequest.booking);
       
       if (bookingResult.success) {
-        console.log('✅ Booking successful!');
-        await this.sendConfirmationEmail(bookingResult);
+        console.log(`✅ Booking successful for ${user.email}!`);
+        await this.sendConfirmationEmail(bookingResult, user);
       } else {
-        console.log('❌ Booking failed:', bookingResult.error);
-        await this.sendErrorEmail(bookingRequest.booking, bookingResult.error);
+        console.log(`❌ Booking failed for ${user.email}:`, bookingResult.error);
+        await this.sendErrorEmail(bookingRequest.booking, bookingResult.error, user);
       }
       
+      await bookingService.cleanup();
       return bookingResult;
     } catch (error) {
       console.error('Error processing booking request:', error);
-      await this.sendErrorEmail(bookingRequest.booking, error.message);
+      await this.sendErrorEmail(bookingRequest.booking, error.message, bookingRequest.user);
       return { success: false, error: error.message };
     }
   }

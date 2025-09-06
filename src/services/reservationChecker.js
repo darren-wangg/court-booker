@@ -1,5 +1,5 @@
 const puppeteer = require("puppeteer");
-const { Resend } = require("resend");
+const EmailService = require("./emailService");
 const config = require("../config");
 const { generateEmailHTML } = require("../email-templates/availabilities");
 
@@ -9,10 +9,11 @@ const START_HOUR = 10; // 10 AM
 const END_HOUR = 22; // 10 PM
 
 class ReservationChecker {
-  constructor() {
+  constructor(userId = null) {
     this.browser = null;
     this.page = null;
-    this.resend = new Resend(config.resendApiKey);
+    this.user = config.getUser(userId);
+    this.emailService = new EmailService();
   }
 
   async initialize() {
@@ -58,10 +59,10 @@ class ReservationChecker {
       );
 
       const emailSelector = await this.findEmailField();
-      await this.page.type(emailSelector, config.email);
+      await this.page.type(emailSelector, this.user.email);
 
       const passwordSelector = await this.findPasswordField();
-      await this.page.type(passwordSelector, config.password);
+      await this.page.type(passwordSelector, this.user.password);
 
       const submitButton = await this.findSubmitButton();
       await Promise.all([
@@ -582,11 +583,6 @@ class ReservationChecker {
 
   async sendEmailReport(results) {
     try {
-      if (!config.resendApiKey || !config.notificationEmail) {
-        console.log("Email not configured - skipping email notification");
-        return;
-      }
-
       // Check if email sending is enabled via configuration
       const shouldSendEmail = config.sendEmail;
       if (!shouldSendEmail) {
@@ -594,17 +590,29 @@ class ReservationChecker {
         return;
       }
 
-      const { data, error } = await this.resend.emails.send({
-        from: "court booker <onboarding@resend.dev>",
-        to: [config.notificationEmail],
+      // Check if Gmail SMTP is configured
+      if (!config.gmailSmtpUser || !config.gmailSmtpPassword) {
+        console.log("Gmail SMTP not configured - skipping email notification");
+        return;
+      }
+
+      if (!config.notificationEmail) {
+        console.log("Notification email not configured - skipping email notification");
+        return;
+      }
+
+      await this.emailService.initialize();
+
+      const result = await this.emailService.sendEmail({
+        to: config.notificationEmail,
         subject: "🏀 Avalon Court Availability 🏀",
         html: generateEmailHTML(results),
       });
 
-      if (error) {
-        console.error("Failed to send email:", error);
+      if (result.success) {
+        console.log("✅ Email notification sent successfully");
       } else {
-        console.log("✅ Email notification sent successfully: ", data);
+        console.error("Failed to send email:", result.error);
       }
     } catch (error) {
       console.error("Error sending email:", error);
