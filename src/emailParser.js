@@ -341,19 +341,25 @@ class EmailParser {
       'run check',
       'availability check',
       'check courts',
-      'check slots'
+      'check slots',
+      'check',
     ];
     
-    const subject = email.subject.toLowerCase();
-    const body = email.body.toLowerCase();
+    const subject = email.subject.toLowerCase().trim();
+    const body = email.body.toLowerCase().trim();
     
-    // Check if it's a direct email (not a reply) with trigger keywords
+    // Check if it's a direct email (not a reply)
     const isDirectEmail = !subject.includes('re:') && !subject.includes('fwd:');
+    
+    // More inclusive trigger detection
     const hasTriggerKeyword = triggerKeywords.some(keyword => 
       subject.includes(keyword) || body.includes(keyword)
     );
     
-    return isDirectEmail && hasTriggerKeyword;
+    // Special case: "check" as standalone subject or body
+    const isSimpleCheck = (subject === 'check' || body === 'check');
+    
+    return isDirectEmail && (hasTriggerKeyword || isSimpleCheck);
   }
 
   /**
