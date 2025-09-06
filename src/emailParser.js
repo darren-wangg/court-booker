@@ -36,17 +36,23 @@ class EmailParser {
 
   /**
    * Parse date from email text
-   * Supports formats like: "September 7, 2025", "Sep 7, 2025", "9/7/2025"
+   * Supports formats like: "Sunday September 7, 2025", "Sunday 9/7", "Sunday Sept 7", "September 7, 2025", "9/7/2025"
    */
   parseDate(text) {
     const datePatterns = [
-      // "Friday September 7, 2025" or "Friday Sep 7, 2025"
+      // "Sunday September 7, 2025" or "Sunday Sep 7, 2025" (full format with day of week)
       /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i,
-      // "September 7, 2025" or "Sep 7, 2025" (fallback for old format)
+      // "Sunday 9/7/2025" or "Sunday 09/07/2025" (numeric format with day of week)
+      /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/i,
+      // "Sunday 9/7" or "Sunday 09/07" (numeric format with day of week, no year)
+      /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(\d{1,2})\/(\d{1,2})/i,
+      // "Sunday Sept 7" or "Sunday Sep 7" (abbreviated month with day of week, no year)
+      /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i,
+      // "September 7, 2025" or "Sep 7, 2025" (fallback for old format without day of week)
       /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i,
-      // "9/7/2025" or "09/07/2025"
+      // "9/7/2025" or "09/07/2025" (numeric format without day of week)
       /(\d{1,2})\/(\d{1,2})\/(\d{4})/,
-      // "2025-09-07"
+      // "2025-09-07" (ISO format)
       /(\d{4})-(\d{1,2})-(\d{1,2})/
     ];
 
@@ -56,12 +62,23 @@ class EmailParser {
         try {
           let dateStr;
           if (pattern === datePatterns[0]) {
-            // Day of week + Month name format: "Friday September 7, 2025"
+            // Day of week + Month name format: "Sunday September 7, 2025"
             dateStr = `${match[2]} ${match[3]}, ${match[4]}`;
           } else if (pattern === datePatterns[1]) {
+            // Day of week + numeric format: "Sunday 9/7/2025"
+            dateStr = `${match[2]}/${match[3]}/${match[4]}`;
+          } else if (pattern === datePatterns[2]) {
+            // Day of week + numeric format (no year): "Sunday 9/7" - assume current year
+            const currentYear = new Date().getFullYear();
+            dateStr = `${match[2]}/${match[3]}/${currentYear}`;
+          } else if (pattern === datePatterns[3]) {
+            // Day of week + abbreviated month (no year): "Sunday Sept 7" - assume current year
+            const currentYear = new Date().getFullYear();
+            dateStr = `${match[2]} ${match[3]}, ${currentYear}`;
+          } else if (pattern === datePatterns[4]) {
             // Month name format: "September 7, 2025" (fallback)
             dateStr = `${match[1]} ${match[2]}, ${match[3]}`;
-          } else if (pattern === datePatterns[2]) {
+          } else if (pattern === datePatterns[5]) {
             // MM/DD/YYYY format
             dateStr = `${match[1]}/${match[2]}/${match[3]}`;
           } else {
@@ -245,20 +262,40 @@ class EmailParser {
   }
 
   /**
-   * Check for new booking requests for all users
+   * Check for new booking requests and manual triggers for all users
    */
   async checkForBookingRequests() {
     try {
-      console.log('🔍 Checking for new booking requests...');
+      console.log('🔍 Checking for new booking requests and manual triggers...');
       
       const messages = await this.getRecentEmails(10);
       const bookingRequests = [];
+      const manualTriggers = [];
 
       for (const message of messages) {
         const email = await this.getEmailContent(message.id);
         
+        // Check if this is a manual trigger request
+        if (this.isManualTriggerRequest(email)) {
+          console.log(`🔔 Found manual trigger request: ${email.subject}`);
+          
+          // Determine which user this trigger belongs to
+          const user = this.identifyUserFromEmail(email);
+          
+          if (!user) {
+            console.log(`⚠️ Could not identify user for email: ${email.from}`);
+            continue;
+          }
+          
+          manualTriggers.push({
+            emailId: message.id,
+            email: email,
+            user: user,
+            type: 'manual_trigger'
+          });
+        }
         // Check if this is a reply to our availability email
-        if (email.subject.includes('Re:') && email.subject.includes('Avalon Court Availability')) {
+        else if (email.subject.includes('Re:') && email.subject.includes('Avalon Court Availability')) {
           console.log(`📧 Found potential booking request: ${email.subject}`);
           
           // Determine which user this booking request belongs to
@@ -285,11 +322,38 @@ class EmailParser {
         }
       }
 
-      return bookingRequests;
+      return { bookingRequests, manualTriggers };
     } catch (error) {
       console.error('Error checking for booking requests:', error);
       throw error;
     }
+  }
+
+  /**
+   * Check if an email is a manual trigger request
+   */
+  isManualTriggerRequest(email) {
+    const triggerKeywords = [
+      'check availability',
+      'check now',
+      'manual check',
+      'trigger check',
+      'run check',
+      'availability check',
+      'check courts',
+      'check slots'
+    ];
+    
+    const subject = email.subject.toLowerCase();
+    const body = email.body.toLowerCase();
+    
+    // Check if it's a direct email (not a reply) with trigger keywords
+    const isDirectEmail = !subject.includes('re:') && !subject.includes('fwd:');
+    const hasTriggerKeyword = triggerKeywords.some(keyword => 
+      subject.includes(keyword) || body.includes(keyword)
+    );
+    
+    return isDirectEmail && hasTriggerKeyword;
   }
 
   /**

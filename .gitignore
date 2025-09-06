@@ -5,3 +5,4 @@ logs/
 *.log
 vercel.json
 .vercel
+.todo.md

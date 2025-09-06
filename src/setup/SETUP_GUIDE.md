@@ -38,7 +38,7 @@ EMAIL=your-email@example.com
 PASSWORD=your-password
 
 # Gmail SMTP for sending emails
-GMAIL_SMTP_USER=your-gmail@gmail.com
+GMAIL_SMTP_USER=courtbooker824@gmail.com
 GMAIL_SMTP_PASSWORD=your-16-character-app-password
 
 # Notification email (where availability emails are sent)
@@ -164,7 +164,16 @@ The workflow will automatically run every 2 hours. You can also trigger it manua
 
 ### Supported Email Formats
 
-**Dates**: "September 7, 2025", "Sep 7, 2025", "9/7/2025", "2025-09-07"
+**Dates**:
+
+- "Sunday September 7, 2025" (full format with day of week)
+- "Sunday 9/7/2025" (numeric with day of week)
+- "Sunday 9/7" (numeric with day of week, no year)
+- "Sunday Sept 7" (abbreviated month with day of week, no year)
+- "September 7, 2025" (traditional format)
+- "Sep 7, 2025" (abbreviated month)
+- "9/7/2025" (numeric format)
+- "2025-09-07" (ISO format)
 
 **Times**: "5 - 6 PM", "5:00 - 6:00 PM", "17:00 - 18:00"
 

@@ -10,25 +10,9 @@ const TIMEOUTS = {
 function parseUsers() {
   const users = [];
   
-  // Check for single user format (EMAIL, PASSWORD) - backward compatibility
-  if (process.env.EMAIL && process.env.PASSWORD) {
-    users.push({
-      id: 1,
-      email: process.env.EMAIL,
-      password: process.env.PASSWORD,
-      notificationEmail: process.env.NOTIFICATION_EMAIL || process.env.EMAIL,
-    });
-  }
-  
   // Check for multi-user format (USER1_EMAIL, USER2_EMAIL, etc.)
   let userIndex = 1;
-  while (process.env[`USER${userIndex}_EMAIL`]) {
-    // Skip if we already have this user from single-user format
-    if (userIndex === 1 && users.length > 0) {
-      userIndex++;
-      continue;
-    }
-    
+  while (process.env[`USER${userIndex}_EMAIL`]) {    
     users.push({
       id: userIndex,
       email: process.env[`USER${userIndex}_EMAIL`],
@@ -43,17 +27,12 @@ function parseUsers() {
 
 const users = parseUsers();
 
-// Get user by ID or return first user for backward compatibility
+// Get user by ID
 function getUser(userId = null) {
   if (userId && users.length > 0) {
     const user = users.find(u => u.id === parseInt(userId));
     if (user) return user;
     console.error(`❌ User with ID ${userId} not found. Available users: ${users.map(u => u.id).join(', ')}`);
-  }
-  
-  // Fallback to first user
-  if (users.length > 0) {
-    return users[0];
   }
   
   // No users found

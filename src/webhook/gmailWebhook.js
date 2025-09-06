@@ -75,6 +75,72 @@ class GmailWebhook {
       }
     });
 
+    // Manual availability check endpoint (for manual triggers)
+    this.app.post('/gmail/check-availability', async (req, res) => {
+      try {
+        console.log('🔍 Manual availability check requested');
+        
+        const ReservationChecker = require('../services/reservationChecker');
+        const EmailService = require('../services/emailService');
+        const { generateEmailHTML } = require('../email-templates/availabilities');
+        
+        // Get user ID from request body or use first user
+        const userId = req.body.userId || null;
+        const user = config.getUser(userId);
+        
+        if (!user) {
+          return res.status(400).json({ 
+            error: 'No user configuration found',
+            availableUsers: config.users.map(u => ({ id: u.id, email: u.email }))
+          });
+        }
+        
+        console.log(`🔍 Running availability check for user: ${user.email}`);
+        
+        // Initialize services
+        const checker = new ReservationChecker(userId);
+        const emailService = new EmailService();
+        await emailService.initialize();
+        
+        // Run availability check
+        const result = await checker.checkAvailability();
+        
+        if (result && result.totalAvailableSlots > 0) {
+          console.log(`✅ Found ${result.totalAvailableSlots} available slots`);
+          
+          // Send email notification
+          const emailHTML = generateEmailHTML(result);
+          const emailResult = await emailService.sendEmail({
+            to: user.notificationEmail,
+            subject: `🏀 Avalon Court Availability - ${result.totalAvailableSlots} slots available`,
+            html: emailHTML
+          });
+          
+          res.json({
+            status: 'completed',
+            totalAvailableSlots: result.totalAvailableSlots,
+            dates: result.dates.length,
+            emailSent: emailResult.success,
+            user: user.email
+          });
+        } else {
+          console.log('⚠️ No available time slots found');
+          res.json({
+            status: 'completed',
+            totalAvailableSlots: 0,
+            dates: 0,
+            emailSent: false,
+            user: user.email,
+            message: 'No available slots found'
+          });
+        }
+        
+      } catch (error) {
+        console.error('❌ Error in manual availability check:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+      }
+    });
+
     // 404 handler
     this.app.use('*', (req, res) => {
       res.status(404).json({ error: 'Endpoint not found' });

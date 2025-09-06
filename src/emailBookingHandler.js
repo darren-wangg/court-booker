@@ -115,25 +115,82 @@ class EmailBookingHandler {
   }
 
   /**
-   * Check for and process new booking requests
+   * Check for and process new booking requests and manual triggers
    */
   async checkAndProcessBookings() {
     try {
-      console.log('🔍 Checking for new booking requests...');
+      console.log('🔍 Checking for new booking requests and manual triggers...');
       
-      const bookingRequests = await this.emailParser.checkForBookingRequests();
-      
-      if (bookingRequests.length === 0) {
-        console.log('📭 No new booking requests found');
-        return [];
-      }
-      
-      console.log(`📧 Found ${bookingRequests.length} booking request(s)`);
+      const { bookingRequests, manualTriggers } = await this.emailParser.checkForBookingRequests();
       
       const results = [];
-      for (const request of bookingRequests) {
-        const result = await this.processBookingRequest(request);
-        results.push(result);
+      
+      // Process manual triggers first
+      if (manualTriggers.length > 0) {
+        console.log(`🔔 Found ${manualTriggers.length} manual trigger(s)`);
+        
+        for (const trigger of manualTriggers) {
+          try {
+            console.log(`🔄 Processing manual trigger for ${trigger.user.email}`);
+            
+            // Trigger availability check via webhook endpoint
+            const response = await fetch(`${process.env.WEBHOOK_URL || 'http://localhost:3000'}/gmail/check-availability`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: trigger.user.id
+              })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+              console.log(`✅ Manual trigger processed for ${trigger.user.email}: ${result.totalAvailableSlots} slots found`);
+              results.push({
+                type: 'manual_trigger',
+                success: true,
+                user: trigger.user.email,
+                totalAvailableSlots: result.totalAvailableSlots,
+                emailSent: result.emailSent
+              });
+            } else {
+              console.error(`❌ Manual trigger failed for ${trigger.user.email}:`, result.error);
+              results.push({
+                type: 'manual_trigger',
+                success: false,
+                user: trigger.user.email,
+                error: result.error
+              });
+            }
+          } catch (error) {
+            console.error(`❌ Error processing manual trigger for ${trigger.user.email}:`, error);
+            results.push({
+              type: 'manual_trigger',
+              success: false,
+              user: trigger.user.email,
+              error: error.message
+            });
+          }
+        }
+      }
+      
+      // Process booking requests
+      if (bookingRequests.length > 0) {
+        console.log(`📧 Found ${bookingRequests.length} booking request(s)`);
+        
+        for (const request of bookingRequests) {
+          const result = await this.processBookingRequest(request);
+          results.push({
+            type: 'booking_request',
+            ...result
+          });
+        }
+      }
+      
+      if (results.length === 0) {
+        console.log('📭 No new booking requests or manual triggers found');
       }
       
       return results;

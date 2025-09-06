@@ -13,6 +13,7 @@ This guide will help you deploy your Court Booker webhook server to Railway for 
 ### Option A: Deploy from GitHub
 
 1. **Connect to Railway**:
+
    - Go to [railway.app](https://railway.app)
    - Click "New Project"
    - Select "Deploy from GitHub repo"
@@ -49,7 +50,7 @@ EMAIL=your-email@example.com
 PASSWORD=your-password
 
 # Gmail SMTP for sending emails
-GMAIL_SMTP_USER=your-gmail@gmail.com
+GMAIL_SMTP_USER=courtbooker824@gmail.com
 GMAIL_SMTP_PASSWORD=your-16-character-app-password
 
 # Notification email (where availability emails are sent)
@@ -91,11 +92,13 @@ This will configure Gmail to send notifications to your Railway webhook.
 ## Step 5: Test Your Deployment
 
 ### Health Check
+
 ```bash
 curl https://your-app-name.railway.app/health
 ```
 
 Expected response:
+
 ```json
 {
   "status": "healthy",
@@ -105,6 +108,7 @@ Expected response:
 ```
 
 ### Manual Booking Check
+
 ```bash
 curl -X POST https://your-app-name.railway.app/gmail/check-bookings
 ```
@@ -112,11 +116,13 @@ curl -X POST https://your-app-name.railway.app/gmail/check-bookings
 ## Step 6: Monitor Your Deployment
 
 ### Railway Dashboard
+
 - **Deployments**: View deployment history and logs
 - **Metrics**: Monitor CPU, memory, and network usage
 - **Logs**: Real-time application logs
 
 ### Application Logs
+
 ```bash
 # View logs in Railway CLI
 railway logs
@@ -127,18 +133,22 @@ railway logs
 ## Railway-Specific Features
 
 ### Automatic Deployments
+
 - Railway automatically deploys when you push to your main branch
 - No manual deployment needed
 
 ### Environment Management
+
 - Easy environment variable management
 - Support for different environments (staging, production)
 
 ### Scaling
+
 - Railway automatically handles scaling
 - Free tier includes 500 hours/month
 
 ### Custom Domains
+
 - Add custom domains in Railway dashboard
 - SSL certificates automatically provisioned
 
@@ -147,14 +157,17 @@ railway logs
 ### Common Issues
 
 1. **"No start command found"**
+
    - Ensure `package.json` has a `start` script
    - Check that `npm start` runs the webhook server
 
 2. **"Port binding failed"**
+
    - Railway automatically sets the PORT environment variable
    - Your app should use `process.env.PORT || 3000`
 
 3. **"Environment variables not found"**
+
    - Check Railway Variables tab
    - Ensure all required variables are set
 
@@ -178,6 +191,7 @@ railway connect
 ## Cost Analysis
 
 **Railway Free Tier**:
+
 - 500 hours/month (enough for 24/7 operation)
 - 1GB RAM
 - 1GB disk space
