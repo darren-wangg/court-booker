@@ -4,7 +4,7 @@ require('dotenv').config();
 const EmailBookingHandler = require('../emailBookingHandler');
 
 async function main() {
-  console.log('🏀 Starting Avalon Court Booking Handler...');
+  console.log('🏀 Starting Avalon Court Booking Handler... 🏀');
   console.log('=====================================');
   
   try {

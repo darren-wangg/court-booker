@@ -79,6 +79,21 @@ jobs:
           DISPLAY: :99
         run: node src/scripts/check-now.js
 
+      - name: Check for booking requests (fallback)
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
+          GMAIL_SMTP_PASSWORD: ${{ secrets.GMAIL_SMTP_PASSWORD }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          HEADLESS: true
+          # Virtual display for Chrome
+          DISPLAY: :99
+        run: node src/scripts/check-bookings.js
+
       - name: Upload logs (if check fails)
         if: failure()
         uses: actions/upload-artifact@v4

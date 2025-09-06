@@ -5,6 +5,13 @@ const config = require('../config');
 const userId = process.argv[2] ? parseInt(process.argv[2]) : null;
 const user = config.getUser(userId);
 
+if (!user) {
+  console.error('❌ Error: No user configuration found!');
+  console.error('Please set EMAIL and PASSWORD environment variables.');
+  console.error('For multiple users, use USER1_EMAIL, USER2_EMAIL, etc.');
+  process.exit(1);
+}
+
 if (!user.email || !user.password) {
   console.error('❌ Error: credentials not configured!');
   console.error('Please create a .env file with your email and password.');

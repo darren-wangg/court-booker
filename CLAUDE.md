@@ -16,7 +16,7 @@ This is a comprehensive automated amenity reservation system that monitors court
 
 ### Phase 2: Email Booking System
 
-- **Gmail Monitoring**: Checks for booking requests every 5 minutes
+- **Gmail Monitoring**: Checks for booking requests
 - **Natural Language Processing**: Parses date/time from email replies
 - **Automated Booking**: Uses Puppeteer to book requested slots
 - **Confirmation System**: Sends success/error notifications

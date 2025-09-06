@@ -9,9 +9,26 @@ const TIMEOUTS = {
 // Parse multiple users from environment variables
 function parseUsers() {
   const users = [];
-  let userIndex = 1;
   
+  // Check for single user format (EMAIL, PASSWORD) - backward compatibility
+  if (process.env.EMAIL && process.env.PASSWORD) {
+    users.push({
+      id: 1,
+      email: process.env.EMAIL,
+      password: process.env.PASSWORD,
+      notificationEmail: process.env.NOTIFICATION_EMAIL || process.env.EMAIL,
+    });
+  }
+  
+  // Check for multi-user format (USER1_EMAIL, USER2_EMAIL, etc.)
+  let userIndex = 1;
   while (process.env[`USER${userIndex}_EMAIL`]) {
+    // Skip if we already have this user from single-user format
+    if (userIndex === 1 && users.length > 0) {
+      userIndex++;
+      continue;
+    }
+    
     users.push({
       id: userIndex,
       email: process.env[`USER${userIndex}_EMAIL`],
@@ -31,12 +48,17 @@ function getUser(userId = null) {
   if (userId && users.length > 0) {
     const user = users.find(u => u.id === parseInt(userId));
     if (user) return user;
+    console.error(`❌ User with ID ${userId} not found. Available users: ${users.map(u => u.id).join(', ')}`);
   }
   
   // Fallback to first user
   if (users.length > 0) {
     return users[0];
   }
+  
+  // No users found
+  console.error('❌ No users configured. Please set EMAIL and PASSWORD environment variables.');
+  return null;
 }
 
 module.exports = {
@@ -67,6 +89,11 @@ module.exports = {
   gmailClientSecret: process.env.GMAIL_CLIENT_SECRET || '',
   gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN || '',
   gmailRedirectUri: process.env.GMAIL_REDIRECT_URI || 'http://localhost:3000/oauth2callback',
+  
+  // Gmail Push Notifications configuration
+  gmailProjectId: process.env.GMAIL_PROJECT_ID || '',
+  gmailTopicName: process.env.GMAIL_TOPIC_NAME || 'court-booker-notifications',
+  webhookUrl: process.env.WEBHOOK_URL || 'http://localhost:3000/gmail/webhook',
   
   // Timeouts (in milliseconds)
   timeouts: TIMEOUTS,

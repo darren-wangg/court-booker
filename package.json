@@ -7,6 +7,8 @@
     "check": "node src/scripts/check-now.js",
     "book": "node src/scripts/check-bookings.js",
     "setup-gmail": "node src/scripts/setup-gmail-auth.js",
+    "setup-push": "node src/scripts/setup-gmail-push.js",
+    "start-webhook": "node src/scripts/start-webhook.js",
     "check-user": "node src/scripts/check-now.js",
     "book-user": "node src/scripts/check-bookings.js",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -17,6 +19,7 @@
   "packageManager": "pnpm@10.6.0",
   "dependencies": {
     "dotenv": "^17.2.2",
+    "express": "^4.18.2",
     "googleapis": "^144.0.0",
     "nodemailer": "^6.9.8",
     "puppeteer": "^24.18.0"

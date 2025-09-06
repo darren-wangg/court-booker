@@ -1,4 +1,4 @@
-# Avalon Court Booker
+# Court Booker
 
 A comprehensive automated system that checks for available court reservations and enables email-based booking. Powered by Puppeteer, GitHub Actions, Gmail API, and Gmail SMTP for a seamless reservation making experience.
 
@@ -18,7 +18,7 @@ This system consists of two main phases that work together to provide a complete
 
 ### Phase 2: **Email Booking System** 📧
 
-- 📬 **Gmail Monitoring**: Checks for booking requests every 5 minutes
+- 📬 **Real-time Processing**: Processes booking requests immediately via Gmail Push Notifications
 - 🧠 **Natural Language Processing**: Parses date/time from various formats
 - 🤖 **Automated Booking**: Uses Puppeteer to fill and submit booking forms
 - ✅ **Confirmation System**: Sends success/error notifications
@@ -62,6 +62,11 @@ This system consists of two main phases that work together to provide a complete
    GMAIL_CLIENT_ID=your_gmail_client_id
    GMAIL_CLIENT_SECRET=your_gmail_client_secret
    GMAIL_REFRESH_TOKEN=your_gmail_refresh_token
+
+   # Gmail Push Notifications (for real-time processing)
+   GMAIL_PROJECT_ID=your_google_cloud_project_id
+   GMAIL_TOPIC_NAME=court-booker-notifications
+   WEBHOOK_URL=https://your-domain.com/gmail/webhook
    ```
 
 3. **Set up Gmail SMTP:**
@@ -76,7 +81,19 @@ This system consists of two main phases that work together to provide a complete
    pnpm run setup-gmail
    ```
 
-5. **Set up GitHub Actions:**
+5. **Set up Real-time Booking Processing:**
+
+   ```bash
+   # Set up Gmail push notifications
+   pnpm run setup-push
+
+   # Start the webhook server (for real-time processing)
+   pnpm run start-webhook
+   ```
+
+   📖 **Detailed Setup Guide**: See [GMAIL_PUSH_SETUP.md](./GMAIL_PUSH_SETUP.md) for complete instructions
+
+6. **Set up GitHub Actions:**
 
    - Push this repository to GitHub
    - Go to your repository Settings → Secrets and variables → Actions
@@ -90,7 +107,7 @@ This system consists of two main phases that work together to provide a complete
      - `GMAIL_CLIENT_SECRET` - Your Gmail API client secret
      - `GMAIL_REFRESH_TOKEN` - Your Gmail API refresh token
 
-6. **Optional configuration:**
+7. **Optional configuration:**
    You can customize these settings in your `.env` file:
 
    ```env
@@ -152,11 +169,12 @@ node check-now.js
 - **Formatting**: Professional design with responsive layout
 - **Recipients**: Delivers to configured notification emails
 
-### Phase 2: Email Booking Processing (Every 5 Minutes)
+### Phase 2: Email Booking Processing
 
-#### 1. **Gmail API Monitoring**
+#### 1. **Gmail Push Notifications**
 
-- **Frequency**: Checks for unread emails every 5 minutes
+- **Real-time Processing**: Processes booking requests immediately when emails arrive
+- **Webhook Integration**: Receives instant notifications from Gmail API
 - **Authentication**: Uses OAuth2 with refresh token management
 - **Filtering**: Identifies replies to availability emails
 - **Multi-user**: Processes emails from all configured users

@@ -1,18 +1,18 @@
-# Avalon Court Booker - System Architecture
+# Court Booker - System Architecture
 
 ## Complete System Overview
 
-This document provides a comprehensive technical overview of the Avalon Court Booker system, including detailed flow diagrams and component interactions.
+This document provides a comprehensive technical overview of the Court Booker system, including detailed flow diagrams and component interactions.
 
 ## System Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              AVALON COURT BOOKER SYSTEM                        │
+│                            COURT BOOKER SYSTEM                                  │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              AVAILABILITY CHECKING FLOW                        │
+│                          AVAILABILITY CHECKING FLOW                             │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -58,14 +58,14 @@ This document provides a comprehensive technical overview of the Avalon Court Bo
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   OAuth2 Auth   │    │   Date/Time      │    │   Booking       │
 │   & Token Mgmt  │    │   Parsing        │    │   Service       │
-│   (Refresh Tokens)│   │   (Regex Engine) │    │   (Puppeteer)   │
+│ (Refresh Tokens)│    │   (Regex Engine) │    │   (Puppeteer)   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                        │                        │
          ▼                        ▼                        ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Email         │    │   Booking        │    │   Amenity Site  │
 │   Processing    │    │   Request        │    │   Form Submit   │
-│   (Mark as Read)│    │   Validation     │    │   & Confirmation│
+│  (Mark as Read) │    │   Validation     │    │   & Confirmation│
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                        │                        │
          ▼                        ▼                        ▼
@@ -217,7 +217,7 @@ This document provides a comprehensive technical overview of the Avalon Court Bo
 **Process Flow**:
 
 1. Initialize Gmail API with OAuth2 credentials
-2. Check for unread emails every 5 minutes
+2. Receives a booking email
 3. Filter for replies to availability emails
 4. Extract and parse date/time information
 5. Validate parsed data completeness
