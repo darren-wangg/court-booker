@@ -6,6 +6,7 @@ class EmailParser {
     this.gmail = null;
     this.oauth2Client = null;
     this.user = config.getUser(userId);
+    this.processedEmails = new Set(); // Track processed email IDs
   }
 
   async initialize() {
@@ -273,6 +274,12 @@ class EmailParser {
       const manualTriggers = [];
 
       for (const message of messages) {
+        // Skip if we've already processed this email
+        if (this.processedEmails.has(message.id)) {
+          console.log(`⏭️ Skipping already processed email: ${message.id}`);
+          continue;
+        }
+        
         const email = await this.getEmailContent(message.id);
         
         // Check if this is a manual trigger request
@@ -286,6 +293,9 @@ class EmailParser {
             console.log(`⚠️ Could not identify user for email: ${email.from}`);
             continue;
           }
+          
+          // Mark as processed
+          this.processedEmails.add(message.id);
           
           manualTriggers.push({
             emailId: message.id,
@@ -310,6 +320,10 @@ class EmailParser {
           
           if (bookingRequest.success) {
             console.log(`✅ Parsed booking request for ${user.email}: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
+            
+            // Mark as processed
+            this.processedEmails.add(message.id);
+            
             bookingRequests.push({
               emailId: message.id,
               email: email,
@@ -389,6 +403,20 @@ class EmailParser {
         password: config.password,
         notificationEmail: config.notificationEmail || config.email,
       };
+    }
+    
+    // Special case: For manual triggers from system emails (like no-reply@accounts.google.com),
+    // we need to identify the user differently. Since we're monitoring courtbooker824@gmail.com,
+    // we can assume manual triggers are from the primary user.
+    if (senderEmail === 'no-reply@accounts.google.com' || 
+        senderEmail.includes('google.com') ||
+        email.subject.toLowerCase().includes('security alert')) {
+      console.log(`🔔 System email detected, using primary user for manual trigger`);
+      // Return the first configured user as the primary user
+      if (config.users.length > 0) {
+        console.log(`✅ Using primary user: ${config.users[0].email}`);
+        return config.users[0];
+      }
     }
     
     console.log(`❌ No user match found for: ${senderEmail}`);
