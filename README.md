@@ -1,28 +1,30 @@
-# Court Reservation Checker
+# Avalon Court Booker
 
-A two-part automated system that checks for available court reservations and enables email-based booking. Powered by Puppeteer, GitHub Actions, Gmail API, and Gmail SMTP for a seamless reservation making experience.
+A comprehensive automated system that checks for available court reservations and enables email-based booking. Powered by Puppeteer, GitHub Actions, Gmail API, and Gmail SMTP for a seamless reservation making experience.
 
 ## System Overview
 
-This system consists of two main components:
+This system consists of two main phases that work together to provide a complete court booking solution:
 
-### 1. **Reservation Checker** 🔍
+### Phase 1: **Availability Checking** 🔍
 
-- 🔄 Automated login to amenity website using Puppeteer
-- 📅 Parses HTML tables to extract reservation data
-- ⏰ Identifies available time slots (10 AM - 10 PM)
-- 🕐 Runs every 2 hours via GitHub Actions
-- 📧 Smart email notifications (only at 2 PM & 10 PM PST)
-- 🎯 Handles pagination to load all reservations
+- 🔄 **Automated Monitoring**: Runs every 2 hours via GitHub Actions
+- 🌐 **Browser Automation**: Uses Puppeteer to login and scrape amenity website
+- 📅 **Data Extraction**: Parses HTML tables to extract reservation data
+- ⏰ **Time Slot Analysis**: Identifies available slots (10 AM - 10 PM)
+- 📧 **Smart Notifications**: Sends emails only at 2 PM & 10 PM PST
+- 🎯 **Complete Coverage**: Handles pagination to load all reservations
+- 📱 **Professional Emails**: HTML-formatted availability reports
 
-### 2. **Email Booking System** 📧
+### Phase 2: **Email Booking System** 📧
 
-- 📬 Monitors Gmail for booking requests via Gmail API
-- 🧠 Intelligent email parsing (multiple date/time formats)
-- 🤖 Automated booking using Puppeteer
-- ✅ Confirmation emails for successful bookings
-- ❌ Error notifications for failed attempts
-- 🔐 OAuth2 authentication for secure Gmail access
+- 📬 **Gmail Monitoring**: Checks for booking requests every 5 minutes
+- 🧠 **Natural Language Processing**: Parses date/time from various formats
+- 🤖 **Automated Booking**: Uses Puppeteer to fill and submit booking forms
+- ✅ **Confirmation System**: Sends success/error notifications
+- 🔐 **Secure Authentication**: OAuth2 for Gmail API access
+- 👥 **Multi-user Support**: Handles multiple court bookers
+- 🛡️ **Error Handling**: Comprehensive error management and recovery
 
 ## Key Features
 
@@ -118,9 +120,82 @@ pnpm check
 node check-now.js
 ```
 
-## How It Works
+## Complete Step-by-Step Process
 
-### Reservation Checking Process
+### Phase 1: Availability Checking (Every 2 Hours)
+
+#### 1. **GitHub Actions Trigger**
+
+- **Schedule**: Cron job runs every 2 hours (`0 */2 * * *`)
+- **Environment**: Ubuntu with Node.js 18 and Chrome
+- **Execution**: Runs `src/scripts/check-now.js`
+
+#### 2. **Reservation Checker Service**
+
+- **Browser Launch**: Puppeteer starts headless Chrome with optimized settings
+- **Website Navigation**: Goes to amenity website
+- **Authentication**: Logs in using stored credentials with multiple selector strategies
+- **Data Collection**: Parses HTML tables to extract reservation data
+- **Pagination**: Clicks "Show More" buttons to load all available reservations
+- **Analysis**: Generates time slots (10 AM - 10 PM) and compares with booked slots
+
+#### 3. **Smart Email Throttling**
+
+- **Timing**: Only sends emails at 2 PM and 10 PM PST
+- **Purpose**: Prevents spam while maintaining useful notifications
+- **Logging**: Always logs availability data regardless of email timing
+
+#### 4. **Gmail SMTP Service**
+
+- **Email Generation**: Creates HTML-formatted availability reports
+- **Delivery**: Sends via Gmail SMTP using app-specific password
+- **Formatting**: Professional design with responsive layout
+- **Recipients**: Delivers to configured notification emails
+
+### Phase 2: Email Booking Processing (Every 5 Minutes)
+
+#### 1. **Gmail API Monitoring**
+
+- **Frequency**: Checks for unread emails every 5 minutes
+- **Authentication**: Uses OAuth2 with refresh token management
+- **Filtering**: Identifies replies to availability emails
+- **Multi-user**: Processes emails from all configured users
+
+#### 2. **Email Parser Intelligence**
+
+- **Natural Language**: Extracts date/time from various formats
+- **Supported Formats**:
+  - **Dates**: "September 7, 2025", "Sep 7, 2025", "9/7/2025", "2025-09-07"
+  - **Times**: "5 - 6 PM", "5:00 - 6:00 PM", "17:00 - 18:00"
+- **Validation**: Ensures parsed data is complete and valid
+- **Error Handling**: Graceful handling of parsing failures
+
+#### 3. **Email Booking Handler**
+
+- **Orchestration**: Coordinates the complete booking process
+- **User Management**: Handles multi-user configurations
+- **Validation**: Validates booking requests before processing
+- **Error Management**: Comprehensive error handling and logging
+
+#### 4. **Booking Service**
+
+- **Browser Instance**: Launches new Puppeteer browser for booking
+- **Authentication**: Logs into amenity website
+- **Form Navigation**: Goes to booking form
+- **Data Entry**: Fills date and time fields automatically
+- **Calendar Interaction**: Handles date picker widgets
+- **Submission**: Submits booking form and detects results
+
+#### 5. **Confirmation System**
+
+- **Success Notifications**: Sends confirmation emails for successful bookings
+- **Error Notifications**: Sends error emails for failed attempts
+- **Email Management**: Marks processed emails as read
+- **Logging**: Records all booking attempts and results
+
+## How It Works - Technical Flow
+
+### Availability Checking Process
 
 1. **Browser Automation**: Puppeteer launches a headless Chrome browser
 2. **Login**: Automatically logs into amenity website using stored credentials
