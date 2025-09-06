@@ -100,7 +100,15 @@ class GmailWebhook {
         // Initialize services
         const checker = new ReservationChecker(userId);
         const emailService = new EmailService();
-        await emailService.initialize();
+        
+        // Try to initialize email service, but don't fail the entire check if it fails
+        let emailServiceReady = false;
+        try {
+          await emailService.initialize();
+          emailServiceReady = true;
+        } catch (error) {
+          console.error('⚠️ Email service initialization failed, availability check will continue without email notifications:', error.message);
+        }
         
         // Run availability check
         const result = await checker.checkAvailability();
@@ -108,19 +116,30 @@ class GmailWebhook {
         if (result && result.totalAvailableSlots > 0) {
           console.log(`✅ Found ${result.totalAvailableSlots} available slots`);
           
-          // Send email notification
-          const emailHTML = generateEmailHTML(result);
-          const emailResult = await emailService.sendEmail({
-            to: user.notificationEmail,
-            subject: `🏀 Avalon Court Availability - ${result.totalAvailableSlots} slots available`,
-            html: emailHTML
-          });
+          // Send email notification only if email service is ready
+          let emailResult = { success: false, error: 'Email service not available' };
+          if (emailServiceReady) {
+            try {
+              const emailHTML = generateEmailHTML(result);
+              emailResult = await emailService.sendEmail({
+                to: user.notificationEmail,
+                subject: `🏀 Avalon Court Availability - ${result.totalAvailableSlots} slots available`,
+                html: emailHTML
+              });
+            } catch (error) {
+              console.error('❌ Failed to send email notification:', error.message);
+              emailResult = { success: false, error: error.message };
+            }
+          } else {
+            console.log('⚠️ Skipping email notification due to email service unavailability');
+          }
           
           res.json({
             status: 'completed',
             totalAvailableSlots: result.totalAvailableSlots,
             dates: result.dates.length,
             emailSent: emailResult.success,
+            emailError: emailResult.error,
             user: user.email
           });
         } else {
