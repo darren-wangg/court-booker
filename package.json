@@ -4,6 +4,7 @@
   "description": "",
   "main": "check-now.js",
   "scripts": {
+    "start": "node src/scripts/start-webhook.js",
     "check": "node src/scripts/check-now.js",
     "book": "node src/scripts/check-bookings.js",
     "setup-gmail": "node src/scripts/setup-gmail-auth.js",
