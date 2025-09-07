@@ -75,6 +75,25 @@ class GmailWebhook {
       }
     });
 
+    // Polling endpoint for email checking (backup to push notifications)
+    this.app.post('/gmail/poll', async (req, res) => {
+      try {
+        console.log('📧 Manual email polling requested');
+        
+        await this.bookingHandler.initialize();
+        const results = await this.bookingHandler.checkAndProcessBookings();
+        
+        res.json({
+          status: 'completed',
+          processed: results.length,
+          results: results
+        });
+      } catch (error) {
+        console.error('❌ Error in email polling:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+      }
+    });
+
     // Manual availability check endpoint (for manual triggers)
     this.app.post('/gmail/check-availability', async (req, res) => {
       try {
