@@ -20,14 +20,19 @@ class GmailSmtpService {
           user: config.gmailSmtpUser, // Your Gmail address
           pass: config.gmailSmtpPassword, // App-specific password
         },
-        // Add timeout and connection configuration
-        connectionTimeout: 10000, // 10 seconds
-        greetingTimeout: 5000,    // 5 seconds
-        socketTimeout: 10000,     // 10 seconds
+        // Add timeout and connection configuration for Railway
+        connectionTimeout: 30000, // 30 seconds
+        greetingTimeout: 15000,   // 15 seconds
+        socketTimeout: 30000,     // 30 seconds
         // Retry configuration
         pool: false,
         maxConnections: 1,
         maxMessages: 1,
+        // Additional Railway-specific settings
+        secure: true,
+        tls: {
+          rejectUnauthorized: false
+        }
       });
 
       // Verify connection with timeout

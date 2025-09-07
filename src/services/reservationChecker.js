@@ -19,7 +19,7 @@ class ReservationChecker {
   async initialize() {
     try {
       this.browser = await puppeteer.launch({
-        headless: config.headless,
+        headless: true, // Always use headless in production
         defaultViewport: null,
         args: [
           "--no-sandbox",
@@ -31,9 +31,16 @@ class ReservationChecker {
           "--disable-gpu",
           "--disable-background-timer-throttling",
           "--disable-backgrounding-occluded-windows",
-          "--disable-renderer-backgrounding"
+          "--disable-renderer-backgrounding",
+          "--disable-web-security",
+          "--disable-features=VizDisplayCompositor",
+          "--single-process",
+          "--disable-xss-auditor",
+          "--disable-web-security",
+          "--disable-features=VizDisplayCompositor"
         ],
         timeout: SIXTY_SECONDS,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       });
 
       this.page = await this.browser.newPage();
