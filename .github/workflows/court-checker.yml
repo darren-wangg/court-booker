@@ -68,29 +68,66 @@ jobs:
 
       - name: Run court availability check
         env:
+          # Legacy single user format (for backward compatibility)
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
-          HEADLESS: true
-          # Only send emails at 2 PM (14:00) and 10 PM (22:00) PST
+
+          # Multi-user format (preferred)
+          USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
+          USER1_PASSWORD: ${{ secrets.USER1_PASSWORD }}
+          USER1_NOTIFICATION_EMAIL: ${{ secrets.USER1_NOTIFICATION_EMAIL }}
+
+          # Gmail SMTP configuration
+          GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
+          GMAIL_SMTP_PASSWORD: ${{ secrets.GMAIL_SMTP_PASSWORD }}
+
+          # Gmail API configuration
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          GMAIL_REDIRECT_URI: http://localhost:3000/oauth2callback
+
+          # Gmail Push Notifications
+          GMAIL_PROJECT_ID: ${{ secrets.GMAIL_PROJECT_ID }}
+          GMAIL_TOPIC_NAME: ${{ secrets.GMAIL_TOPIC_NAME }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+          # Runtime configuration
+          HEADLESS_MODE: true
           SEND_EMAIL: ${{ steps.email-check.outputs.should_send }}
-          # Virtual display for Chrome
           DISPLAY: :99
         run: node src/scripts/check-now.js
 
       - name: Check for booking requests (fallback)
         env:
+          # Legacy single user format (for backward compatibility)
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+
+          # Multi-user format (preferred)
+          USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
+          USER1_PASSWORD: ${{ secrets.USER1_PASSWORD }}
+          USER1_NOTIFICATION_EMAIL: ${{ secrets.USER1_NOTIFICATION_EMAIL }}
+
+          # Gmail SMTP configuration
           GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
           GMAIL_SMTP_PASSWORD: ${{ secrets.GMAIL_SMTP_PASSWORD }}
-          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
+
+          # Gmail API configuration
           GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
           GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
           GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
-          HEADLESS: true
-          # Virtual display for Chrome
+          GMAIL_REDIRECT_URI: http://localhost:3000/oauth2callback
+
+          # Gmail Push Notifications
+          GMAIL_PROJECT_ID: ${{ secrets.GMAIL_PROJECT_ID }}
+          GMAIL_TOPIC_NAME: ${{ secrets.GMAIL_TOPIC_NAME }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+
+          # Runtime configuration
+          HEADLESS_MODE: true
           DISPLAY: :99
         run: node src/scripts/check-bookings.js
 
