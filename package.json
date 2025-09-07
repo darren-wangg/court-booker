@@ -4,7 +4,7 @@
   "description": "",
   "main": "check-now.js",
   "scripts": {
-    "start": "npx puppeteer browsers install chrome && node src/scripts/start-webhook.js",
+    "start": "npx puppeteer browsers install chrome@latest && node src/scripts/start-webhook.js",
     "check": "node src/scripts/check-now.js",
     "book": "node src/scripts/check-bookings.js",
     "setup-gmail": "node src/scripts/setup-gmail-auth.js",

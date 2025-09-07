@@ -40,7 +40,7 @@ class GmailSmtpService {
       await Promise.race([
         this.transporter.verify(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SMTP connection timeout after 15 seconds')), 15000)
+          setTimeout(() => reject(new Error('SMTP connection timeout after 30 seconds')), 30000)
         )
       ]);
       console.log('✅ Gmail SMTP connection verified');

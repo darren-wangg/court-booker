@@ -30,7 +30,6 @@ class BookingService {
           "--disable-xss-auditor",
         ],
         timeout: 60000,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       });
 
       this.page = await this.browser.newPage();

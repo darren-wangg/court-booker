@@ -40,7 +40,6 @@ class ReservationChecker {
           "--disable-features=VizDisplayCompositor"
         ],
         timeout: SIXTY_SECONDS,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       });
 
       this.page = await this.browser.newPage();
