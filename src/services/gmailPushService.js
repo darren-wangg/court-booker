@@ -104,10 +104,15 @@ class GmailPushService {
         userId: 'me'
       });
       
+      // Since Gmail watch requests are persistent and we just set one up,
+      // we'll assume it's active. The watch will expire after 7 days.
+      const watchActive = !!this.watchRequest;
+      const watchExpiration = this.watchRequest ? new Date(parseInt(this.watchRequest.expiration)) : null;
+      
       return {
         email: response.data.emailAddress,
-        watchActive: !!this.watchRequest,
-        watchExpiration: this.watchRequest ? new Date(parseInt(this.watchRequest.expiration)) : null
+        watchActive: watchActive,
+        watchExpiration: watchExpiration
       };
     } catch (error) {
       console.error('❌ Failed to get watch status:', error);

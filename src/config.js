@@ -22,6 +22,16 @@ function parseUsers() {
     userIndex++;
   }
   
+  // Fallback to legacy single-user format if no multi-user format found
+  if (users.length === 0 && process.env.EMAIL && process.env.PASSWORD) {
+    users.push({
+      id: 1,
+      email: process.env.EMAIL,
+      password: process.env.PASSWORD,
+      notificationEmail: process.env.NOTIFICATION_EMAIL || process.env.EMAIL,
+    });
+  }
+  
   return users;
 }
 
