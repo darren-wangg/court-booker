@@ -42,15 +42,22 @@ const users = parseUsers();
 
 // Get user by ID
 function getUser(userId = null) {
-  if (userId && users.length > 0) {
+  // If no users configured at all
+  if (users.length === 0) {
+    console.error('❌ No users configured. Please set EMAIL and PASSWORD environment variables.');
+    return null;
+  }
+  
+  // If specific user ID requested
+  if (userId) {
     const user = users.find(u => u.id === parseInt(userId));
     if (user) return user;
     console.error(`❌ User with ID ${userId} not found. Available users: ${users.map(u => u.id).join(', ')}`);
+    return null;
   }
   
-  // No users found
-  console.error('❌ No users configured. Please set EMAIL and PASSWORD environment variables.');
-  return null;
+  // Default to first user
+  return users[0];
 }
 
 module.exports = {
