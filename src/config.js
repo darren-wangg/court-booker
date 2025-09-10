@@ -1,4 +1,7 @@
-require('dotenv').config();
+// Only load .env in non-CI environments
+if (!process.env.CI && !process.env.GITHUB_ACTIONS) {
+  require('dotenv').config();
+}
 
 const TIMEOUTS = {
   navigation: 30000,
