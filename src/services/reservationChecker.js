@@ -3,8 +3,12 @@ const EmailService = require("./emailService");
 const config = require("../config");
 const { generateEmailHTML } = require("../email-templates/availabilities");
 
+// Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
 const THIRTY_SECONDS = 30 * 1000;
+const CI_TIMEOUT_MULTIPLIER = process.env.GITHUB_ACTIONS ? 2 : 1;
+const NAVIGATION_TIMEOUT = SIXTY_SECONDS * CI_TIMEOUT_MULTIPLIER;
+const DEFAULT_TIMEOUT = THIRTY_SECONDS * CI_TIMEOUT_MULTIPLIER;
 const START_HOUR = 10; // 10 AM
 const END_HOUR = 22; // 10 PM
 
@@ -39,13 +43,13 @@ class ReservationChecker {
           "--disable-web-security",
           "--disable-features=VizDisplayCompositor"
         ],
-        timeout: SIXTY_SECONDS,
+        timeout: NAVIGATION_TIMEOUT,
       });
 
       this.page = await this.browser.newPage();
 
-      this.page.setDefaultNavigationTimeout(SIXTY_SECONDS);
-      this.page.setDefaultTimeout(THIRTY_SECONDS);
+      this.page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT);
+      this.page.setDefaultTimeout(DEFAULT_TIMEOUT);
     } catch (error) {
       console.error("Failed to initialize browser: ", error);
       throw error;
@@ -71,10 +75,27 @@ class ReservationChecker {
       await this.page.type(passwordSelector, this.user.password);
 
       const submitButton = await this.findSubmitButton();
+      
+      // Add debug logging for CI
+      if (process.env.GITHUB_ACTIONS) {
+        console.log('🔍 About to submit login form...');
+        const currentUrl = this.page.url();
+        console.log('🔍 Current URL before submit:', currentUrl);
+      }
+      
       await Promise.all([
-        this.page.waitForNavigation({ waitUntil: "networkidle2" }),
+        this.page.waitForNavigation({ 
+          waitUntil: "networkidle2",
+          timeout: NAVIGATION_TIMEOUT 
+        }),
         this.page.click(submitButton),
       ]);
+      
+      // Add debug logging for CI  
+      if (process.env.GITHUB_ACTIONS) {
+        const newUrl = this.page.url();
+        console.log('🔍 New URL after submit:', newUrl);
+      }
 
       await new Promise((resolve) =>
         setTimeout(resolve, config.timeouts.betweenActions)
