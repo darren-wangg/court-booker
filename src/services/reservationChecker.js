@@ -48,6 +48,29 @@ class ReservationChecker {
 
       this.page = await this.browser.newPage();
 
+      // Add extra stealth measures for CI environment
+      if (process.env.GITHUB_ACTIONS) {
+        console.log('🔍 Applying CI-specific browser configuration...');
+        
+        // Set a realistic user agent
+        await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        
+        // Set additional headers
+        await this.page.setExtraHTTPHeaders({
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-User': '?1',
+          'Cache-Control': 'max-age=0'
+        });
+
+        // Set viewport to common desktop size
+        await this.page.setViewport({ width: 1366, height: 768 });
+      }
+
       this.page.setDefaultNavigationTimeout(NAVIGATION_TIMEOUT);
       this.page.setDefaultTimeout(DEFAULT_TIMEOUT);
     } catch (error) {
@@ -83,13 +106,33 @@ class ReservationChecker {
         console.log('🔍 Current URL before submit:', currentUrl);
       }
       
-      await Promise.all([
-        this.page.waitForNavigation({ 
-          waitUntil: "networkidle2",
-          timeout: NAVIGATION_TIMEOUT 
-        }),
-        this.page.click(submitButton),
-      ]);
+      // Click submit button without waiting for navigation
+      console.log('🔍 Clicking submit button...');
+      await this.page.click(submitButton);
+      
+      // Wait and check if login succeeded manually
+      console.log('🔍 Waiting for login to process...');
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+      
+      const currentUrl = this.page.url();
+      console.log('🔍 Current URL after login attempt:', currentUrl);
+      
+      // Check if we're still on login page (indicates failure)
+      if (currentUrl.includes('LogOn') || currentUrl.includes('login') || currentUrl.includes('Login')) {
+        // Try to find error messages
+        try {
+          const errorElement = await this.page.$('.validation-summary-errors, .alert-danger, .error-message');
+          if (errorElement) {
+            const errorText = await this.page.evaluate(el => el.textContent, errorElement);
+            throw new Error(`Login failed: ${errorText}`);
+          }
+        } catch (err) {
+          // Ignore if we can't find error element
+        }
+        throw new Error('Login failed - still on login page');
+      }
+      
+      console.log('✅ Login appears successful - redirected away from login page');
       
       // Add debug logging for CI  
       if (process.env.GITHUB_ACTIONS) {

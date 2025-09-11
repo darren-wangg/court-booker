@@ -24,7 +24,6 @@ async function checkNow() {
   const checker = new ReservationChecker(userId);
   
   try {
-    console.log('🔍 Running availability check...\n');
     const result = await checker.checkAvailability();
     
     if (result && result.totalAvailableSlots > 0) {
