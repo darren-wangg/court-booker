@@ -40,6 +40,9 @@ async function startWebhook() {
     // Keep the process alive
     console.log('\n🔄 Server is running... Press Ctrl+C to stop');
     
+    // Prevent the process from exiting
+    process.stdin.resume();
+    
   } catch (error) {
     console.error('❌ Failed to start webhook server:', error.message);
     process.exit(1);
@@ -55,6 +58,16 @@ process.on('SIGINT', async () => {
 process.on('SIGTERM', async () => {
   console.log('\n🛑 Shutting down webhook server...');
   process.exit(0);
+});
+
+// Prevent the process from exiting unexpectedly
+process.on('exit', (code) => {
+  console.log(`\n🛑 Process exiting with code: ${code}`);
+});
+
+process.on('beforeExit', (code) => {
+  console.log(`\n⚠️ Process about to exit with code: ${code}`);
+  // Don't let it exit unless it's intentional
 });
 
 startWebhook();

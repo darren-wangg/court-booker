@@ -272,8 +272,13 @@ class GmailWebhook {
 
       // Keep the process alive
       setInterval(() => {
-        // Just a heartbeat to keep the process running
+        console.log('💓 Heartbeat - Server is alive');
       }, 30000); // Every 30 seconds
+      
+      // Additional keep-alive mechanism
+      this.keepAliveInterval = setInterval(() => {
+        // This ensures the event loop stays active
+      }, 1000);
       
     } catch (error) {
       console.error('❌ Failed to start webhook server:', error);
@@ -283,6 +288,12 @@ class GmailWebhook {
 
   async stop() {
     console.log('🛑 Stopping Gmail webhook server...');
+    
+    // Clean up intervals
+    if (this.keepAliveInterval) {
+      clearInterval(this.keepAliveInterval);
+    }
+    
     process.exit(0);
   }
 }
