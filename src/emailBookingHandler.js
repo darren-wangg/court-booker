@@ -6,15 +6,19 @@ class EmailBookingHandler {
   constructor() {
     this.emailParser = new EmailParser(); // No userId needed - processes all users
     this.emailService = new EmailService();
+    this.initialized = false;
   }
 
   async initialize() {
     try {
       await this.emailParser.initialize();
+      this.initialized = true;
       console.log('✅ Email booking handler initialized');
     } catch (error) {
       console.error('Failed to initialize email booking handler:', error);
-      throw error;
+      // Don't throw the error - let the server start even if email parsing fails
+      console.log('⚠️ Continuing without email parsing functionality');
+      this.initialized = false;
     }
   }
 
@@ -52,6 +56,11 @@ class EmailBookingHandler {
    */
   async checkAndProcessBookings() {
     try {
+      if (!this.initialized) {
+        console.log('⚠️ Email booking handler not initialized - skipping email processing');
+        return [];
+      }
+      
       console.log('🔍 Checking for new booking requests and manual triggers...');
       
       const { bookingRequests, manualTriggers } = await this.emailParser.checkForBookingRequests();

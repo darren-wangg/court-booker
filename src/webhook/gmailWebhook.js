@@ -61,7 +61,15 @@ class GmailWebhook {
       try {
         console.log('🔍 Manual booking check requested');
         
-        await this.bookingHandler.initialize();
+        if (!this.bookingHandler.initialized) {
+          try {
+            await this.bookingHandler.initialize();
+          } catch (error) {
+            console.error('❌ Failed to initialize booking handler:', error);
+            return res.status(500).json({ error: 'Failed to initialize booking handler', details: error.message });
+          }
+        }
+        
         const results = await this.bookingHandler.checkAndProcessBookings();
         
         res.json({
@@ -80,7 +88,15 @@ class GmailWebhook {
       try {
         console.log('📧 Manual email polling requested');
         
-        await this.bookingHandler.initialize();
+        if (!this.bookingHandler.initialized) {
+          try {
+            await this.bookingHandler.initialize();
+          } catch (error) {
+            console.error('❌ Failed to initialize booking handler:', error);
+            return res.status(500).json({ error: 'Failed to initialize booking handler', details: error.message });
+          }
+        }
+        
         const results = await this.bookingHandler.checkAndProcessBookings();
         
         res.json({
@@ -201,7 +217,12 @@ class GmailWebhook {
       
       // Initialize booking handler if not already done
       if (!this.bookingHandler.initialized) {
-        await this.bookingHandler.initialize();
+        try {
+          await this.bookingHandler.initialize();
+        } catch (error) {
+          console.error('❌ Failed to initialize booking handler:', error);
+          return; // Exit early if initialization fails
+        }
       }
 
       // Check for new booking requests
@@ -233,6 +254,22 @@ class GmailWebhook {
         console.log(`🔍 Manual check endpoint: http://localhost:${this.port}/gmail/check-bookings`);
         console.log(`❤️ Health check: http://localhost:${this.port}/health`);
       });
+
+      // Add error handlers to prevent crashes
+      this.app.on('error', (error) => {
+        console.error('❌ Express app error:', error);
+      });
+
+      process.on('uncaughtException', (error) => {
+        console.error('❌ Uncaught Exception:', error);
+        // Don't exit, just log the error
+      });
+
+      process.on('unhandledRejection', (reason, promise) => {
+        console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+        // Don't exit, just log the error
+      });
+      
     } catch (error) {
       console.error('❌ Failed to start webhook server:', error);
       throw error;
