@@ -69,6 +69,16 @@ class GmailWebhook {
         res.status(500).json({ error: 'Internal server error' });
       }
     });
+    
+    // Debug endpoint to test webhook connectivity
+    this.app.get('/gmail/webhook', (req, res) => {
+      console.log('🔍 Webhook endpoint accessed via GET');
+      res.json({ 
+        message: 'Gmail webhook endpoint is accessible',
+        timestamp: new Date().toISOString(),
+        method: 'GET'
+      });
+    });
 
     // Manual booking check endpoint (for testing)
     this.app.post('/gmail/check-bookings', async (req, res) => {
@@ -120,6 +130,33 @@ class GmailWebhook {
         });
       } catch (error) {
         console.error('❌ Error in email polling:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+      }
+    });
+
+    // Manual email processing endpoint (for testing without push notifications)
+    this.app.post('/gmail/process-emails', async (req, res) => {
+      try {
+        console.log('📧 Manual email processing requested');
+        
+        if (!this.bookingHandler.initialized) {
+          try {
+            await this.bookingHandler.initialize();
+          } catch (error) {
+            console.error('❌ Failed to initialize booking handler:', error);
+            return res.status(500).json({ error: 'Failed to initialize booking handler', details: error.message });
+          }
+        }
+        
+        const results = await this.bookingHandler.checkAndProcessBookings();
+        
+        res.json({
+          status: 'completed',
+          processed: results.length,
+          results: results
+        });
+      } catch (error) {
+        console.error('❌ Error in manual email processing:', error);
         res.status(500).json({ error: 'Internal server error', details: error.message });
       }
     });
