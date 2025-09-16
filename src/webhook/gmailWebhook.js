@@ -39,6 +39,8 @@ class GmailWebhook {
     this.app.post('/gmail/webhook', async (req, res) => {
       try {
         console.log('📧 Received Gmail push notification');
+        console.log('📧 Request body:', JSON.stringify(req.body, null, 2));
+        console.log('📧 Request headers:', JSON.stringify(req.headers, null, 2));
         
         // Verify the request is from Gmail (basic validation)
         if (!this.isValidGmailRequest(req)) {

@@ -65,6 +65,8 @@ class EmailBookingHandler {
       
       const { bookingRequests, manualTriggers } = await this.emailParser.checkForBookingRequests();
       
+      console.log(`📊 Found ${bookingRequests.length} booking requests and ${manualTriggers.length} manual triggers`);
+      
       const results = [];
       
       // Process manual triggers first

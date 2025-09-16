@@ -270,6 +270,8 @@ class EmailParser {
       console.log('🔍 Checking for new booking requests and manual triggers...');
       
       const messages = await this.getRecentEmails(10);
+      console.log(`📧 Retrieved ${messages.length} recent emails`);
+      
       const bookingRequests = [];
       const manualTriggers = [];
 
@@ -281,6 +283,7 @@ class EmailParser {
         }
         
         const email = await this.getEmailContent(message.id);
+        console.log(`📧 Processing email: ${email.subject} from ${email.from}`);
         
         // Check if this is a manual trigger request
         if (this.isManualTriggerRequest(email)) {
