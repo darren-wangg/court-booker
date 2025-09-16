@@ -138,6 +138,34 @@ class GmailWebhook {
       }
     });
 
+    // Clear processed emails endpoint (for testing)
+    this.app.post('/gmail/clear-processed', async (req, res) => {
+      try {
+        console.log('🧹 Clearing processed emails for testing');
+        
+        if (!this.bookingHandler.initialized) {
+          try {
+            await this.bookingHandler.initialize();
+          } catch (error) {
+            console.error('❌ Failed to initialize booking handler:', error);
+            return res.status(500).json({ error: 'Failed to initialize booking handler', details: error.message });
+          }
+        }
+        
+        // Clear the processed emails set
+        this.bookingHandler.emailParser.processedEmails.clear();
+        console.log('✅ Processed emails cleared');
+        
+        res.json({
+          status: 'completed',
+          message: 'Processed emails cleared successfully'
+        });
+      } catch (error) {
+        console.error('❌ Error clearing processed emails:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+      }
+    });
+
     // Manual email processing endpoint (for testing without push notifications)
     this.app.post('/gmail/process-emails', async (req, res) => {
       try {

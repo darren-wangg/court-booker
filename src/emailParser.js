@@ -176,10 +176,16 @@ class EmailParser {
    * Parse booking request from email text
    */
   parseBookingRequest(emailText) {
+    console.log('📧 Parsing booking request from email text:', emailText.substring(0, 200) + '...');
+    
     const date = this.parseDate(emailText);
     const time = this.parseTime(emailText);
+    
+    console.log('📅 Parsed date:', date);
+    console.log('⏰ Parsed time:', time);
 
     if (!date || !time) {
+      console.log('❌ Failed to parse date or time from email');
       return {
         success: false,
         error: 'Could not parse date or time from email',
@@ -187,6 +193,7 @@ class EmailParser {
       };
     }
 
+    console.log('✅ Successfully parsed booking request');
     return {
       success: true,
       date: date.parsed,
@@ -395,18 +402,27 @@ class EmailParser {
     const subject = email.subject.toLowerCase().trim();
     const body = email.body.toLowerCase().trim();
     
+    console.log(`🔍 Checking manual trigger for email: "${subject}"`);
+    console.log(`🔍 Email body: "${body.substring(0, 100)}..."`);
+    
     // Check if it's a direct email (not a reply)
     const isDirectEmail = !subject.includes('re:') && !subject.includes('fwd:');
+    console.log(`🔍 Is direct email: ${isDirectEmail}`);
     
     // More inclusive trigger detection
     const hasTriggerKeyword = triggerKeywords.some(keyword => 
       subject.includes(keyword) || body.includes(keyword)
     );
+    console.log(`🔍 Has trigger keyword: ${hasTriggerKeyword}`);
     
     // Special case: "check" as standalone subject or body
     const isSimpleCheck = (subject === 'check' || body === 'check');
+    console.log(`🔍 Is simple check: ${isSimpleCheck}`);
     
-    return isDirectEmail && (hasTriggerKeyword || isSimpleCheck);
+    const isManualTrigger = isDirectEmail && (hasTriggerKeyword || isSimpleCheck);
+    console.log(`🔍 Is manual trigger: ${isManualTrigger}`);
+    
+    return isManualTrigger;
   }
 
   /**
@@ -414,17 +430,23 @@ class EmailParser {
    */
   isDirectBookingRequest(email) {
     const subject = email.subject.toLowerCase().trim();
+    const body = email.body.toLowerCase().trim();
     
-    // Check if subject is exactly "book" or contains "book" as a standalone word
-    const isBookSubject = subject === 'book' || 
-                         subject === 'book ' || 
-                         subject === ' book' ||
-                         /\bbook\b/.test(subject);
+    console.log(`📧 Checking booking request for email: "${subject}"`);
+    console.log(`📧 Email body: "${body.substring(0, 100)}..."`);
+    
+    // Check if body contains "book" as a standalone word
+    const isBookInBody = /\bbook\b/.test(body);
+    console.log(`📧 Contains "book" in body: ${isBookInBody}`);
     
     // Check if it's a direct email (not a reply)
     const isDirectEmail = !subject.includes('re:') && !subject.includes('fwd:');
+    console.log(`📧 Is direct email: ${isDirectEmail}`);
     
-    return isDirectEmail && isBookSubject;
+    const isBookingRequest = isDirectEmail && isBookInBody;
+    console.log(`📧 Is booking request: ${isBookingRequest}`);
+    
+    return isBookingRequest;
   }
 
   /**

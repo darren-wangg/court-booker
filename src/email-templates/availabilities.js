@@ -23,7 +23,8 @@ function generateEmailHTML(results) {
       </div>
       
       <div style="background-color: #f8fafc; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #3b82f6;">
-        <p style="margin: 0; color: #374151;"><strong>To book:</strong> Reply with date and time, e.g. "Sunday 9/7" and "5 - 6 PM"</p>
+        <p style="margin: 0; color: #374151;"><strong>To book:</strong> Reply with "Book" and a date and time</p>
+        <p style="margin: 0; color: #374151;">Ex: "Sunday 9/7" and "5-6 PM"</p>
       </div>
     </div>
   `;
@@ -45,7 +46,7 @@ function generateEmailHTML(results) {
           <ul style="margin: 5px 0; padding-left: 20px;">
       `;
       available.forEach((slot) => {
-        html += `<li style="color: #059669;">✅ ${slot}</li>`;
+        html += `<li style="color: #059669; margin-top: 5px;">✅ ${slot}</li>`;
       });
       html += `</ul></div>`;
     } else {
