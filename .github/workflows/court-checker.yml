@@ -56,14 +56,17 @@ jobs:
       - name: Determine if email should be sent
         id: email-check
         run: |
-          # Get current hour in PST (UTC-8) or PDT (UTC-7) depending on daylight saving
-          current_hour_pst=$(TZ='America/Los_Angeles' date +%H)
-          if [ "$current_hour_pst" = "14" ] || [ "$current_hour_pst" = "22" ]; then
+          # Get current UTC hour (GitHub Actions run in UTC)
+          current_hour_utc=$(date -u +%H)
+          # Check if current UTC hour matches 2 PM or 10 PM PST
+          # 2 PM PST = 22:00 UTC (winter) or 21:00 UTC (summer)
+          # 10 PM PST = 06:00 UTC (winter) or 05:00 UTC (summer)
+          if [ "$current_hour_utc" = "21" ] || [ "$current_hour_utc" = "22" ] || [ "$current_hour_utc" = "05" ] || [ "$current_hour_utc" = "06" ]; then
             echo "should_send=true" >> $GITHUB_OUTPUT
-            echo "📧 Email will be sent (PST hour: $current_hour_pst)"
+            echo "📧 Email will be sent (UTC hour: $current_hour_utc)"
           else
             echo "should_send=false" >> $GITHUB_OUTPUT
-            echo "📧 Email disabled for this run (PST hour: $current_hour_pst)"
+            echo "📧 Email disabled for this run (UTC hour: $current_hour_utc)"
           fi
 
       - name: Run court availability check
@@ -98,38 +101,6 @@ jobs:
           SEND_EMAIL: ${{ steps.email-check.outputs.should_send }}
           DISPLAY: :99
         run: node src/scripts/check-now.js
-
-      - name: Check for booking requests (fallback)
-        env:
-          # Legacy single user format (for backward compatibility)
-          EMAIL: ${{ secrets.EMAIL }}
-          PASSWORD: ${{ secrets.PASSWORD }}
-          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
-
-          # Multi-user format (preferred)
-          USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
-          USER1_PASSWORD: ${{ secrets.USER1_PASSWORD }}
-          USER1_NOTIFICATION_EMAIL: ${{ secrets.USER1_NOTIFICATION_EMAIL }}
-
-          # Gmail SMTP configuration
-          GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
-          GMAIL_SMTP_PASSWORD: ${{ secrets.GMAIL_SMTP_PASSWORD }}
-
-          # Gmail API configuration
-          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
-          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
-          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
-          GMAIL_REDIRECT_URI: http://localhost:3000/oauth2callback
-
-          # Gmail Push Notifications
-          GMAIL_PROJECT_ID: ${{ secrets.GMAIL_PROJECT_ID }}
-          GMAIL_TOPIC_NAME: ${{ secrets.GMAIL_TOPIC_NAME }}
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
-
-          # Runtime configuration
-          HEADLESS_MODE: true
-          DISPLAY: :99
-        run: node src/scripts/check-bookings.js
 
       - name: Upload logs (if check fails)
         if: failure()

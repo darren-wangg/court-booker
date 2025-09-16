@@ -2,10 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npx puppeteer browsers install chrome@latest"
+    "buildCommand": "npm install && npx puppeteer browsers install chrome@latest"
   },
   "deploy": {
-    "startCommand": "npm start",
+    "startCommand": "npx puppeteer browsers install chrome@latest && npm start",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

@@ -21,9 +21,9 @@ class GmailSmtpService {
           pass: config.gmailSmtpPassword, // App-specific password
         },
         // Add timeout and connection configuration for Railway
-        connectionTimeout: 30000, // 30 seconds
-        greetingTimeout: 15000,   // 15 seconds
-        socketTimeout: 30000,     // 30 seconds
+        connectionTimeout: 60000, // 60 seconds
+        greetingTimeout: 30000,   // 30 seconds
+        socketTimeout: 60000,     // 60 seconds
         // Retry configuration
         pool: false,
         maxConnections: 1,
@@ -31,8 +31,14 @@ class GmailSmtpService {
         // Additional Railway-specific settings
         secure: true,
         tls: {
-          rejectUnauthorized: false
-        }
+          rejectUnauthorized: false,
+          ciphers: 'SSLv3'
+        },
+        // Railway-specific port configuration
+        port: 587,
+        // Additional connection options for Railway
+        ignoreTLS: false,
+        requireTLS: true
       });
 
       // Verify connection with timeout
@@ -40,7 +46,7 @@ class GmailSmtpService {
       await Promise.race([
         this.transporter.verify(),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SMTP connection timeout after 30 seconds')), 30000)
+          setTimeout(() => reject(new Error('SMTP connection timeout after 60 seconds')), 60000)
         )
       ]);
       console.log('✅ Gmail SMTP connection verified');
