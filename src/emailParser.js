@@ -304,6 +304,36 @@ class EmailParser {
             type: 'manual_trigger'
           });
         }
+        // Check if this is a direct booking request with "Book" subject
+        else if (this.isDirectBookingRequest(email)) {
+          console.log(`📧 Found direct booking request: ${email.subject}`);
+          
+          // Determine which user this booking request belongs to
+          const user = this.identifyUserFromEmail(email);
+          
+          if (!user) {
+            console.log(`⚠️ Could not identify user for email: ${email.from}`);
+            continue;
+          }
+          
+          const bookingRequest = this.parseBookingRequest(email.body);
+          
+          if (bookingRequest.success) {
+            console.log(`✅ Parsed direct booking request for ${user.email}: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
+            
+            // Mark as processed
+            this.processedEmails.add(message.id);
+            
+            bookingRequests.push({
+              emailId: message.id,
+              email: email,
+              user: user,
+              booking: bookingRequest,
+            });
+          } else {
+            console.log(`❌ Failed to parse direct booking request: ${bookingRequest.error}`);
+          }
+        }
         // Check if this is a reply to our availability email
         else if (email.subject.includes('Re:') && email.subject.includes('Avalon Court Availability')) {
           console.log(`📧 Found potential booking request: ${email.subject}`);
@@ -374,6 +404,24 @@ class EmailParser {
     const isSimpleCheck = (subject === 'check' || body === 'check');
     
     return isDirectEmail && (hasTriggerKeyword || isSimpleCheck);
+  }
+
+  /**
+   * Check if an email is a direct booking request
+   */
+  isDirectBookingRequest(email) {
+    const subject = email.subject.toLowerCase().trim();
+    
+    // Check if subject is exactly "book" or contains "book" as a standalone word
+    const isBookSubject = subject === 'book' || 
+                         subject === 'book ' || 
+                         subject === ' book' ||
+                         /\bbook\b/.test(subject);
+    
+    // Check if it's a direct email (not a reply)
+    const isDirectEmail = !subject.includes('re:') && !subject.includes('fwd:');
+    
+    return isDirectEmail && isBookSubject;
   }
 
   /**
