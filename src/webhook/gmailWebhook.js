@@ -28,10 +28,22 @@ class GmailWebhook {
   setupRoutes() {
     // Health check endpoint
     this.app.get('/health', (req, res) => {
-      res.json({ 
+      console.log('❤️ Health check requested');
+      res.status(200).json({ 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
-        service: 'Court Booker Gmail Webhook'
+        service: 'Court Booker Gmail Webhook',
+        uptime: process.uptime(),
+        memory: process.memoryUsage()
+      });
+    });
+    
+    // Root endpoint for Railway
+    this.app.get('/', (req, res) => {
+      res.status(200).json({
+        message: 'Court Booker Gmail Webhook Server',
+        status: 'running',
+        timestamp: new Date().toISOString()
       });
     });
 
@@ -247,14 +259,25 @@ class GmailWebhook {
 
   async start() {
     try {
+      console.log('🔄 Initializing booking handler...');
       await this.bookingHandler.initialize();
       console.log('✅ Booking handler initialized');
       
-      this.app.listen(this.port, '0.0.0.0', () => {
+      console.log(`🔄 Starting server on port ${this.port}...`);
+      
+      // Store the server instance to prevent it from being garbage collected
+      this.server = this.app.listen(this.port, '0.0.0.0', () => {
         console.log(`🚀 Gmail Webhook server running on port ${this.port}`);
         console.log(`📧 Webhook endpoint: http://0.0.0.0:${this.port}/gmail/webhook`);
         console.log(`🔍 Manual check endpoint: http://0.0.0.0:${this.port}/gmail/check-bookings`);
         console.log(`❤️ Health check: http://0.0.0.0:${this.port}/health`);
+        console.log('✅ Server startup completed successfully');
+        console.log('✅ Server is now listening for requests');
+      });
+      
+      // Add error handling for the server
+      this.server.on('error', (error) => {
+        console.error('❌ Server error:', error);
       });
 
       // Add error handlers to prevent crashes
@@ -296,7 +319,15 @@ class GmailWebhook {
       clearInterval(this.keepAliveInterval);
     }
     
-    process.exit(0);
+    // Close the server properly
+    if (this.server) {
+      this.server.close(() => {
+        console.log('✅ Server closed successfully');
+        process.exit(0);
+      });
+    } else {
+      process.exit(0);
+    }
   }
 }
 

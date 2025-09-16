@@ -6,6 +6,9 @@ const GmailWebhook = require('../webhook/gmailWebhook');
 async function startWebhook() {
   console.log('🚀 Starting Court Booker Gmail Webhook Server');
   console.log('==============================================');
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔌 Port: ${process.env.PORT || '3000'}`);
+  console.log(`📧 Webhook URL: ${process.env.WEBHOOK_URL || 'http://localhost:3000'}`);
   
   try {
     // Validate required environment variables
@@ -39,9 +42,19 @@ async function startWebhook() {
     
     // Keep the process alive
     console.log('\n🔄 Server is running... Press Ctrl+C to stop');
+    console.log('🔄 Process will stay alive until manually terminated');
     
-    // Prevent the process from exiting
+    // Prevent the process from exiting - this is critical for Railway
     process.stdin.resume();
+    
+    // Add a keep-alive mechanism
+    const keepAliveInterval = setInterval(() => {
+      console.log('💓 Process keep-alive - still running');
+    }, 60000); // Every minute
+    
+    // Store the webhook instance to prevent garbage collection
+    global.webhook = webhook;
+    global.keepAliveInterval = keepAliveInterval;
     
   } catch (error) {
     console.error('❌ Failed to start webhook server:', error.message);
@@ -51,12 +64,25 @@ async function startWebhook() {
 
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
-  console.log('\n🛑 Shutting down webhook server...');
+  console.log('\n🛑 Received SIGINT - Shutting down webhook server...');
+  if (global.webhook) {
+    await global.webhook.stop();
+  }
+  if (global.keepAliveInterval) {
+    clearInterval(global.keepAliveInterval);
+  }
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n🛑 Shutting down webhook server...');
+  console.log('\n🛑 Received SIGTERM - Shutting down webhook server...');
+  console.log('🛑 SIGTERM received - this usually means Railway is terminating the process');
+  if (global.webhook) {
+    await global.webhook.stop();
+  }
+  if (global.keepAliveInterval) {
+    clearInterval(global.keepAliveInterval);
+  }
   process.exit(0);
 });
 
