@@ -66,35 +66,64 @@ class EmailBookingHandler {
           try {
             console.log(`🔄 Processing manual trigger for ${trigger.user.email}`);
             
-            // Trigger availability check via webhook endpoint
-            const response = await fetch(`${process.env.WEBHOOK_URL || 'http://localhost:3000'}/gmail/check-availability`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                userId: trigger.user.id
-              })
-            });
+            // Run availability check directly instead of via HTTP request
+            const ReservationChecker = require('./services/reservationChecker');
+            const EmailService = require('./services/emailService');
+            const { generateEmailHTML } = require('./email-templates/availabilities');
             
-            const result = await response.json();
+            // Initialize services
+            const checker = new ReservationChecker(trigger.user.id);
+            const emailService = new EmailService();
             
-            if (response.ok) {
-              console.log(`✅ Manual trigger processed for ${trigger.user.email}: ${result.totalAvailableSlots} slots found`);
+            // Try to initialize email service, but don't fail the entire check if it fails
+            let emailServiceReady = false;
+            try {
+              await emailService.initialize();
+              emailServiceReady = true;
+            } catch (error) {
+              console.error('⚠️ Email service initialization failed, availability check will continue without email notifications:', error.message);
+            }
+            
+            // Run availability check
+            const result = await checker.checkAvailability();
+            
+            if (result && result.totalAvailableSlots > 0) {
+              console.log(`✅ Found ${result.totalAvailableSlots} available slots`);
+              
+              // Send email notification only if email service is ready
+              let emailResult = { success: false, error: 'Email service not available' };
+              if (emailServiceReady) {
+                try {
+                  const emailHTML = generateEmailHTML(result);
+                  emailResult = await emailService.sendEmail({
+                    to: trigger.user.notificationEmail,
+                    subject: `🏀 Avalon Court Availability - ${result.totalAvailableSlots} slots available`,
+                    html: emailHTML
+                  });
+                } catch (error) {
+                  console.error('❌ Failed to send email notification:', error.message);
+                  emailResult = { success: false, error: error.message };
+                }
+              } else {
+                console.log('⚠️ Skipping email notification due to email service unavailability');
+              }
+              
               results.push({
                 type: 'manual_trigger',
                 success: true,
                 user: trigger.user.email,
                 totalAvailableSlots: result.totalAvailableSlots,
-                emailSent: result.emailSent
+                emailSent: emailResult.success
               });
             } else {
-              console.error(`❌ Manual trigger failed for ${trigger.user.email}:`, result.error);
+              console.log('⚠️ No available time slots found');
               results.push({
                 type: 'manual_trigger',
-                success: false,
+                success: true,
                 user: trigger.user.email,
-                error: result.error
+                totalAvailableSlots: 0,
+                emailSent: false,
+                message: 'No available slots found'
               });
             }
           } catch (error) {
