@@ -50,11 +50,23 @@ async function startWebhook() {
     // Add a keep-alive mechanism
     const keepAliveInterval = setInterval(() => {
       console.log('💓 Process keep-alive - still running');
+      console.log(`💓 Memory usage: ${JSON.stringify(process.memoryUsage())}`);
+      console.log(`💓 Uptime: ${process.uptime()} seconds`);
     }, 60000); // Every minute
     
     // Store the webhook instance to prevent garbage collection
     global.webhook = webhook;
     global.keepAliveInterval = keepAliveInterval;
+    
+    // Add a more aggressive keep-alive for Railway
+    const railwayKeepAlive = setInterval(() => {
+      // This ensures the event loop stays active
+      if (global.webhook && global.webhook.server) {
+        console.log('💓 Railway keep-alive - server is active');
+      }
+    }, 10000); // Every 10 seconds
+    
+    global.railwayKeepAlive = railwayKeepAlive;
     
   } catch (error) {
     console.error('❌ Failed to start webhook server:', error.message);
@@ -71,6 +83,9 @@ process.on('SIGINT', async () => {
   if (global.keepAliveInterval) {
     clearInterval(global.keepAliveInterval);
   }
+  if (global.railwayKeepAlive) {
+    clearInterval(global.railwayKeepAlive);
+  }
   process.exit(0);
 });
 
@@ -82,6 +97,9 @@ process.on('SIGTERM', async () => {
   }
   if (global.keepAliveInterval) {
     clearInterval(global.keepAliveInterval);
+  }
+  if (global.railwayKeepAlive) {
+    clearInterval(global.railwayKeepAlive);
   }
   process.exit(0);
 });

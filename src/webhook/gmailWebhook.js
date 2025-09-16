@@ -29,13 +29,17 @@ class GmailWebhook {
     // Health check endpoint
     this.app.get('/health', (req, res) => {
       console.log('❤️ Health check requested');
-      res.status(200).json({ 
+      const healthData = { 
         status: 'healthy', 
         timestamp: new Date().toISOString(),
         service: 'Court Booker Gmail Webhook',
         uptime: process.uptime(),
-        memory: process.memoryUsage()
-      });
+        memory: process.memoryUsage(),
+        port: this.port,
+        serverRunning: !!this.server
+      };
+      console.log('❤️ Health check response:', healthData);
+      res.status(200).json(healthData);
     });
     
     // Root endpoint for Railway
@@ -335,12 +339,22 @@ class GmailWebhook {
       // Keep the process alive
       setInterval(() => {
         console.log('💓 Heartbeat - Server is alive');
+        console.log(`💓 Server status: ${this.server ? 'running' : 'stopped'}`);
       }, 30000); // Every 30 seconds
       
       // Additional keep-alive mechanism
       this.keepAliveInterval = setInterval(() => {
         // This ensures the event loop stays active
+        if (this.server) {
+          // Server is still running
+        }
       }, 1000);
+      
+      // Railway-specific health monitoring
+      this.railwayHealthInterval = setInterval(() => {
+        console.log('💓 Railway health check - process is active');
+        // This helps Railway detect that the process is healthy
+      }, 15000); // Every 15 seconds
       
     } catch (error) {
       console.error('❌ Failed to start webhook server:', error);
@@ -354,6 +368,9 @@ class GmailWebhook {
     // Clean up intervals
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
+    }
+    if (this.railwayHealthInterval) {
+      clearInterval(this.railwayHealthInterval);
     }
     
     // Close the server properly
