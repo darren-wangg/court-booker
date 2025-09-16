@@ -8,11 +8,13 @@ class EmailService {
 
   async initialize() {
     try {
+      console.log('🔌 Creating Gmail SMTP service...');
       this.gmailSmtp = new GmailSmtpService();
+      console.log('🔌 Initializing Gmail SMTP service...');
       await this.gmailSmtp.initialize();
-      console.log('✅ Gmail SMTP service initialized');
+      console.log('✅ Gmail SMTP service initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize email service:', error);
+      console.error('❌ Failed to initialize email service:', error);
       throw error;
     }
   }

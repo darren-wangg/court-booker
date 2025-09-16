@@ -83,20 +83,26 @@ class EmailBookingHandler {
             const { generateEmailHTML } = require('./email-templates/availabilities');
             
             // Initialize services
+            console.log('🔧 Creating ReservationChecker...');
             const checker = new ReservationChecker(trigger.user.id);
+            console.log('🔧 Creating EmailService...');
             const emailService = new EmailService();
             
             // Try to initialize email service, but don't fail the entire check if it fails
             let emailServiceReady = false;
             try {
+              console.log('🔧 Initializing email service...');
               await emailService.initialize();
               emailServiceReady = true;
+              console.log('✅ Email service ready');
             } catch (error) {
               console.error('⚠️ Email service initialization failed, availability check will continue without email notifications:', error.message);
             }
             
             // Run availability check
+            console.log('🔍 Running availability check...');
             const result = await checker.checkAvailability();
+            console.log('🔍 Availability check completed:', result ? 'Success' : 'Failed');
             
             if (result && result.totalAvailableSlots > 0) {
               console.log(`✅ Found ${result.totalAvailableSlots} available slots`);
@@ -105,12 +111,15 @@ class EmailBookingHandler {
               let emailResult = { success: false, error: 'Email service not available' };
               if (emailServiceReady) {
                 try {
+                  console.log('📧 Generating email HTML...');
                   const emailHTML = generateEmailHTML(result);
+                  console.log('📧 Sending availability email to:', trigger.user.notificationEmail);
                   emailResult = await emailService.sendEmail({
                     to: trigger.user.notificationEmail,
                     subject: `🏀 Avalon Court Availability - ${result.totalAvailableSlots} slots available`,
                     html: emailHTML
                   });
+                  console.log('📧 Email send result:', emailResult);
                 } catch (error) {
                   console.error('❌ Failed to send email notification:', error.message);
                   emailResult = { success: false, error: error.message };
