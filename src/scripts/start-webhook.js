@@ -37,6 +37,9 @@ async function startWebhook() {
     console.log('2. Check the logs above for processing status');
     console.log('3. You should receive a confirmation email');
     
+    // Keep the process alive
+    console.log('\n🔄 Server is running... Press Ctrl+C to stop');
+    
   } catch (error) {
     console.error('❌ Failed to start webhook server:', error.message);
     process.exit(1);

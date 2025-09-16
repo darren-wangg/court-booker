@@ -248,11 +248,11 @@ class GmailWebhook {
       await this.bookingHandler.initialize();
       console.log('✅ Booking handler initialized');
       
-      this.app.listen(this.port, () => {
+      this.app.listen(this.port, '0.0.0.0', () => {
         console.log(`🚀 Gmail Webhook server running on port ${this.port}`);
-        console.log(`📧 Webhook endpoint: http://localhost:${this.port}/gmail/webhook`);
-        console.log(`🔍 Manual check endpoint: http://localhost:${this.port}/gmail/check-bookings`);
-        console.log(`❤️ Health check: http://localhost:${this.port}/health`);
+        console.log(`📧 Webhook endpoint: http://0.0.0.0:${this.port}/gmail/webhook`);
+        console.log(`🔍 Manual check endpoint: http://0.0.0.0:${this.port}/gmail/check-bookings`);
+        console.log(`❤️ Health check: http://0.0.0.0:${this.port}/health`);
       });
 
       // Add error handlers to prevent crashes
@@ -269,6 +269,11 @@ class GmailWebhook {
         console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
         // Don't exit, just log the error
       });
+
+      // Keep the process alive
+      setInterval(() => {
+        // Just a heartbeat to keep the process running
+      }, 30000); // Every 30 seconds
       
     } catch (error) {
       console.error('❌ Failed to start webhook server:', error);
