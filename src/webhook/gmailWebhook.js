@@ -193,6 +193,65 @@ class GmailWebhook {
       }
     });
 
+    // Test SMTP connection endpoint
+    this.app.post('/gmail/test-smtp', async (req, res) => {
+      try {
+        console.log('🔍 Testing SMTP connection...');
+        
+        const EmailService = require('../services/emailService');
+        const emailService = new EmailService();
+        
+        try {
+          await emailService.initialize();
+          console.log('✅ SMTP service initialized successfully');
+          
+          // Send a test email if requested
+          if (req.body.sendTest) {
+            const testEmail = req.body.testEmail || process.env.NOTIFICATION_EMAIL;
+            if (testEmail) {
+              const result = await emailService.sendEmail({
+                to: testEmail,
+                subject: '🧪 SMTP Test Email',
+                html: '<h1>SMTP Test</h1><p>This is a test email to verify SMTP connectivity from Railway.</p><p>Timestamp: ' + new Date().toISOString() + '</p>'
+              });
+              
+              res.json({
+                status: 'success',
+                smtpInitialized: true,
+                testEmailSent: result.success,
+                testEmailError: result.error,
+                testEmailTo: testEmail
+              });
+            } else {
+              res.json({
+                status: 'success',
+                smtpInitialized: true,
+                testEmailSent: false,
+                message: 'No test email address provided'
+              });
+            }
+          } else {
+            res.json({
+              status: 'success',
+              smtpInitialized: true,
+              message: 'SMTP service ready, no test email sent'
+            });
+          }
+        } catch (error) {
+          console.error('❌ SMTP initialization failed:', error);
+          res.json({
+            status: 'error',
+            smtpInitialized: false,
+            error: error.message,
+            details: error.toString()
+          });
+        }
+      } catch (error) {
+        console.error('❌ Error testing SMTP:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
+      }
+    });
+
     // Manual availability check endpoint (for manual triggers)
     this.app.post('/gmail/check-availability', async (req, res) => {
       try {

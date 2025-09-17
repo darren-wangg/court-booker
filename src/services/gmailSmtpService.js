@@ -28,21 +28,21 @@ class GmailSmtpService {
         pool: false,
         maxConnections: 1,
         maxMessages: 1,
-        // Additional Railway-specific settings
-        secure: true,
-        tls: {
-          rejectUnauthorized: false,
-          ciphers: 'SSLv3'
-        },
-        // Railway-specific port configuration
+        // Gmail SMTP settings - use port 587 with STARTTLS
+        host: 'smtp.gmail.com',
         port: 587,
-        // Additional connection options for Railway
-        ignoreTLS: false,
+        secure: false, // Use STARTTLS (secure: false for port 587)
+        tls: {
+          rejectUnauthorized: true,
+          // Remove deprecated SSLv3 cipher
+          minVersion: 'TLSv1.2'
+        },
         requireTLS: true
       });
 
       // Verify connection with timeout
       console.log('🔌 Attempting to connect to Gmail SMTP...');
+      console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=587, secure=false, user=${config.gmailSmtpUser}`);
       try {
         await Promise.race([
           this.transporter.verify(),
@@ -50,9 +50,11 @@ class GmailSmtpService {
             setTimeout(() => reject(new Error('SMTP connection timeout after 30 seconds')), 30000)
           )
         ]);
-        console.log('✅ Gmail SMTP connection verified');
+        console.log('✅ Gmail SMTP connection verified successfully');
       } catch (verifyError) {
         console.error('⚠️ SMTP verification failed:', verifyError.message);
+        console.error('⚠️ SMTP error details:', verifyError);
+        console.log('⚠️ Common causes: 1) Invalid app password, 2) Account security settings, 3) Network/firewall issues');
         console.log('⚠️ Continuing without SMTP verification - will attempt to send when needed');
         // Don't throw the error - let the service continue and try to send when needed
       }
@@ -65,6 +67,7 @@ class GmailSmtpService {
   async sendEmail({ to, subject, html, from = null }) {
     try {
       if (!this.transporter) {
+        console.log('🔧 Transporter not initialized, initializing now...');
         await this.initialize();
       }
 
@@ -75,11 +78,16 @@ class GmailSmtpService {
         html: html,
       };
 
+      console.log(`📧 Attempting to send email to: ${mailOptions.to}`);
+      console.log(`📧 Subject: ${mailOptions.subject}`);
+      
       const result = await this.transporter.sendMail(mailOptions);
       console.log('✅ Email sent successfully:', result.messageId);
       return { success: true, messageId: result.messageId };
     } catch (error) {
-      console.error('Failed to send email:', error);
+      console.error('❌ Failed to send email:', error.message);
+      console.error('❌ Email error details:', error);
+      console.log('❌ Check: 1) SMTP credentials, 2) App password validity, 3) Account security settings');
       return { success: false, error: error.message };
     }
   }
