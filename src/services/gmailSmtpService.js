@@ -43,13 +43,19 @@ class GmailSmtpService {
 
       // Verify connection with timeout
       console.log('🔌 Attempting to connect to Gmail SMTP...');
-      await Promise.race([
-        this.transporter.verify(),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('SMTP connection timeout after 60 seconds')), 60000)
-        )
-      ]);
-      console.log('✅ Gmail SMTP connection verified');
+      try {
+        await Promise.race([
+          this.transporter.verify(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('SMTP connection timeout after 30 seconds')), 30000)
+          )
+        ]);
+        console.log('✅ Gmail SMTP connection verified');
+      } catch (verifyError) {
+        console.error('⚠️ SMTP verification failed:', verifyError.message);
+        console.log('⚠️ Continuing without SMTP verification - will attempt to send when needed');
+        // Don't throw the error - let the service continue and try to send when needed
+      }
     } catch (error) {
       console.error('Failed to initialize Gmail SMTP:', error);
       throw error;

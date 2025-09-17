@@ -97,6 +97,7 @@ class EmailBookingHandler {
               console.log('✅ Email service ready');
             } catch (error) {
               console.error('⚠️ Email service initialization failed, availability check will continue without email notifications:', error.message);
+              console.log('⚠️ This is likely due to Railway network restrictions or SMTP configuration issues');
             }
             
             // Run availability check
