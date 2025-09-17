@@ -53,8 +53,11 @@ RUN corepack enable && corepack prepare pnpm@10.6.0 --activate
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Install Chrome for Puppeteer
-RUN npx puppeteer browsers install chrome@latest
+# Install Chrome for Puppeteer - use stable version
+RUN npx puppeteer browsers install chrome@stable
+
+# Set environment variable for Puppeteer to use installed Chrome
+ENV PUPPETEER_EXECUTABLE_PATH=/root/.cache/puppeteer/chrome/linux-*/chrome-linux*/chrome
 
 # Copy source code
 COPY . .

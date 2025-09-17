@@ -28,21 +28,19 @@ class GmailSmtpService {
         pool: false,
         maxConnections: 1,
         maxMessages: 1,
-        // Gmail SMTP settings - use port 587 with STARTTLS
+        // Gmail SMTP settings - use port 465 with SSL for Railway
         host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // Use STARTTLS (secure: false for port 587)
+        port: 465,
+        secure: true, // Use SSL (secure: true for port 465)
         tls: {
           rejectUnauthorized: true,
-          // Remove deprecated SSLv3 cipher
           minVersion: 'TLSv1.2'
-        },
-        requireTLS: true
+        }
       });
 
       // Verify connection with timeout
       console.log('🔌 Attempting to connect to Gmail SMTP...');
-      console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=587, secure=false, user=${config.gmailSmtpUser}`);
+      console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=465, secure=true, user=${config.gmailSmtpUser}`);
       try {
         await Promise.race([
           this.transporter.verify(),

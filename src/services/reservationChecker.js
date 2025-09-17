@@ -28,13 +28,14 @@ class ReservationChecker {
       const launchOptions = {
         headless: true,
         defaultViewport: null,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
           "--disable-accelerated-2d-canvas",
           "--no-first-run",
-          "--no-zygote",
+          "--no-zygote", 
           "--disable-gpu",
           "--disable-background-timer-throttling",
           "--disable-backgrounding-occluded-windows",
@@ -43,29 +44,11 @@ class ReservationChecker {
           "--disable-features=VizDisplayCompositor",
           "--single-process",
           "--disable-xss-auditor",
-          "--disable-web-security",
-          "--disable-features=VizDisplayCompositor",
           "--disable-extensions",
           "--disable-plugins",
           "--disable-images",
-          "--disable-javascript",
+          // Note: Removed --disable-javascript as it prevents form interactions
           "--disable-default-apps",
-          "--disable-sync",
-          "--disable-translate",
-          "--hide-scrollbars",
-          "--mute-audio",
-          "--no-default-browser-check",
-          "--no-pings",
-          "--disable-logging",
-          "--disable-permissions-api",
-          "--disable-presentation-api",
-          "--disable-print-preview",
-          "--disable-speech-api",
-          "--disable-file-system",
-          "--disable-client-side-phishing-detection",
-          "--disable-component-extensions-with-background-pages",
-          "--disable-default-apps",
-          "--disable-extensions",
           "--disable-sync",
           "--disable-translate",
           "--hide-scrollbars",
@@ -84,19 +67,27 @@ class ReservationChecker {
         timeout: NAVIGATION_TIMEOUT,
       };
 
-      // Try to use system Chrome if available, otherwise use bundled Chrome
+      // Try to launch Chrome with Railway environment detection
       try {
-        console.log('🌐 Attempting to launch browser with system Chrome...');
+        console.log('🌐 Attempting to launch browser...');
+        console.log(`🌐 Chrome executable path: ${launchOptions.executablePath || 'bundled'}`);
         this.browser = await puppeteer.launch(launchOptions);
-        console.log('✅ Browser launched successfully with system Chrome');
-      } catch (systemChromeError) {
-        console.log('⚠️ System Chrome failed, trying bundled Chrome...');
-        console.log('⚠️ System Chrome error:', systemChromeError.message);
+        console.log('✅ Browser launched successfully');
+      } catch (chromeError) {
+        console.log('⚠️ Chrome launch failed, trying without executable path...');
+        console.log('⚠️ Chrome error:', chromeError.message);
         
-        // Try with bundled Chrome
-        launchOptions.executablePath = undefined; // Use bundled Chrome
-        this.browser = await puppeteer.launch(launchOptions);
-        console.log('✅ Browser launched successfully with bundled Chrome');
+        // Try with bundled Chrome (remove executablePath)
+        const fallbackOptions = { ...launchOptions };
+        delete fallbackOptions.executablePath;
+        
+        try {
+          this.browser = await puppeteer.launch(fallbackOptions);
+          console.log('✅ Browser launched successfully with bundled Chrome');
+        } catch (fallbackError) {
+          console.error('❌ Failed to launch browser:', fallbackError.message);
+          throw new Error(`Chrome launch failed: ${fallbackError.message}`);
+        }
       }
 
       this.page = await this.browser.newPage();
