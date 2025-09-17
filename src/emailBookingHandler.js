@@ -102,8 +102,15 @@ class EmailBookingHandler {
             
             // Run availability check
             console.log('🔍 Running availability check...');
-            const result = await checker.checkAvailability();
-            console.log('🔍 Availability check completed:', result ? 'Success' : 'Failed');
+            let result = null;
+            try {
+              result = await checker.checkAvailability();
+              console.log('🔍 Availability check completed:', result ? 'Success' : 'Failed');
+            } catch (availabilityError) {
+              console.error('❌ Availability check failed:', availabilityError.message);
+              console.log('⚠️ This is likely due to Puppeteer/Chrome issues in Railway');
+              result = null;
+            }
             
             if (result && result.totalAvailableSlots > 0) {
               console.log(`✅ Found ${result.totalAvailableSlots} available slots`);

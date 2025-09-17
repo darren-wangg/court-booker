@@ -22,8 +22,11 @@ class ReservationChecker {
 
   async initialize() {
     try {
-      this.browser = await puppeteer.launch({
-        headless: true, // Always use headless in production
+      console.log('🌐 Initializing Puppeteer browser...');
+      
+      // Railway-specific Puppeteer configuration
+      const launchOptions = {
+        headless: true,
         defaultViewport: null,
         args: [
           "--no-sandbox",
@@ -41,10 +44,60 @@ class ReservationChecker {
           "--single-process",
           "--disable-xss-auditor",
           "--disable-web-security",
-          "--disable-features=VizDisplayCompositor"
+          "--disable-features=VizDisplayCompositor",
+          "--disable-extensions",
+          "--disable-plugins",
+          "--disable-images",
+          "--disable-javascript",
+          "--disable-default-apps",
+          "--disable-sync",
+          "--disable-translate",
+          "--hide-scrollbars",
+          "--mute-audio",
+          "--no-default-browser-check",
+          "--no-pings",
+          "--disable-logging",
+          "--disable-permissions-api",
+          "--disable-presentation-api",
+          "--disable-print-preview",
+          "--disable-speech-api",
+          "--disable-file-system",
+          "--disable-client-side-phishing-detection",
+          "--disable-component-extensions-with-background-pages",
+          "--disable-default-apps",
+          "--disable-extensions",
+          "--disable-sync",
+          "--disable-translate",
+          "--hide-scrollbars",
+          "--mute-audio",
+          "--no-default-browser-check",
+          "--no-pings",
+          "--disable-logging",
+          "--disable-permissions-api",
+          "--disable-presentation-api",
+          "--disable-print-preview",
+          "--disable-speech-api",
+          "--disable-file-system",
+          "--disable-client-side-phishing-detection",
+          "--disable-component-extensions-with-background-pages"
         ],
         timeout: NAVIGATION_TIMEOUT,
-      });
+      };
+
+      // Try to use system Chrome if available, otherwise use bundled Chrome
+      try {
+        console.log('🌐 Attempting to launch browser with system Chrome...');
+        this.browser = await puppeteer.launch(launchOptions);
+        console.log('✅ Browser launched successfully with system Chrome');
+      } catch (systemChromeError) {
+        console.log('⚠️ System Chrome failed, trying bundled Chrome...');
+        console.log('⚠️ System Chrome error:', systemChromeError.message);
+        
+        // Try with bundled Chrome
+        launchOptions.executablePath = undefined; // Use bundled Chrome
+        this.browser = await puppeteer.launch(launchOptions);
+        console.log('✅ Browser launched successfully with bundled Chrome');
+      }
 
       this.page = await this.browser.newPage();
 
