@@ -28,8 +28,8 @@ class ReservationChecker {
       const launchOptions = {
         headless: true,
         defaultViewport: null,
-        // Don't set executablePath in Railway - let Puppeteer find Chrome automatically
-        executablePath: process.env.RAILWAY_ENVIRONMENT ? undefined : process.env.PUPPETEER_EXECUTABLE_PATH,
+        // Use system Chrome in Railway, otherwise use env variable
+        executablePath: process.env.RAILWAY_ENVIRONMENT ? '/usr/bin/google-chrome' : (process.env.PUPPETEER_EXECUTABLE_PATH || undefined),
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
@@ -63,7 +63,24 @@ class ReservationChecker {
           "--disable-speech-api",
           "--disable-file-system",
           "--disable-client-side-phishing-detection",
-          "--disable-component-extensions-with-background-pages"
+          "--disable-component-extensions-with-background-pages",
+          // Additional Railway-specific flags for resource constraints
+          "--memory-pressure-off",
+          "--max_old_space_size=512",
+          "--disable-background-networking",
+          "--disable-background-timer-throttling",
+          "--disable-ipc-flooding-protection",
+          "--disable-hang-monitor",
+          "--disable-prompt-on-repost",
+          "--disable-domain-reliability",
+          "--disable-features=TranslateUI",
+          "--disable-features=BlinkGenPropertyTrees",
+          "--run-all-compositor-stages-before-draw",
+          "--disable-threaded-animation",
+          "--disable-threaded-scrolling",
+          "--disable-checker-imaging",
+          "--disable-new-content-rendering-timeout",
+          "--disable-image-animation-resync"
         ],
         timeout: NAVIGATION_TIMEOUT,
       };
@@ -736,8 +753,26 @@ class ReservationChecker {
   }
 
   async cleanup() {
-    if (this.browser) {
-      await this.browser.close();
+    try {
+      if (this.page) {
+        await this.page.close();
+        this.page = null;
+      }
+      if (this.browser) {
+        await this.browser.close();
+        this.browser = null;
+      }
+    } catch (error) {
+      console.error('⚠️ Error during cleanup:', error.message);
+      // Force kill any remaining processes in Railway
+      if (process.env.RAILWAY_ENVIRONMENT) {
+        try {
+          const { execSync } = require('child_process');
+          execSync('pkill -f chrome', { stdio: 'ignore' });
+        } catch (killError) {
+          // Ignore kill errors
+        }
+      }
     }
   }
 }

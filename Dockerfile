@@ -63,6 +63,7 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+ENV RAILWAY_ENVIRONMENT=true
 
 # Copy source code
 COPY . .
