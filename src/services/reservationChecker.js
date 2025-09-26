@@ -24,6 +24,9 @@ class ReservationChecker {
     try {
       console.log('🌐 Initializing Puppeteer browser...');
       
+      // Initialize resource constraint flag
+      this.railwayResourceConstraint = false;
+      
       // Railway-specific Puppeteer configuration
       const launchOptions = {
         headless: true,
@@ -117,6 +120,7 @@ class ReservationChecker {
           
           this.browser = await puppeteer.launch(launchOptions);
           console.log('✅ Browser launched successfully');
+          this.railwayResourceConstraint = false; // Clear any previous constraint flag
           return; // Success, exit retry loop
           
         } catch (chromeError) {
@@ -132,6 +136,7 @@ class ReservationChecker {
               
               this.browser = await puppeteer.launch(fallbackOptions);
               console.log('✅ Browser launched successfully with bundled Chrome');
+              this.railwayResourceConstraint = false; // Clear any previous constraint flag
               return; // Success, exit retry loop
               
             } catch (fallbackError) {
