@@ -66,7 +66,7 @@ class ReservationChecker {
           "--disable-component-extensions-with-background-pages",
           // Additional Railway-specific flags for resource constraints
           "--memory-pressure-off",
-          "--max_old_space_size=512",
+          "--max_old_space_size=256",
           "--disable-background-networking",
           "--disable-background-timer-throttling",
           "--disable-ipc-flooding-protection",
@@ -80,7 +80,21 @@ class ReservationChecker {
           "--disable-threaded-scrolling",
           "--disable-checker-imaging",
           "--disable-new-content-rendering-timeout",
-          "--disable-image-animation-resync"
+          "--disable-image-animation-resync",
+          // Thread and process limiting for Railway
+          "--single-process",
+          "--disable-gpu-process",
+          "--disable-renderer-backgrounding",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-features=VizDisplayCompositor",
+          "--disable-features=AudioServiceOutOfProcess",
+          "--disable-features=MediaFoundationVideoCapture",
+          "--renderer-process-limit=1",
+          "--max-gum-fps=5",
+          "--force-color-profile=srgb",
+          "--disable-accelerated-video-decode",
+          "--disable-accelerated-video-encode"
         ],
         timeout: NAVIGATION_TIMEOUT,
       };
