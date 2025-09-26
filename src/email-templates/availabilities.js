@@ -30,12 +30,22 @@ function generateEmailHTML(results) {
   `;
 
   dates.forEach((dateResult) => {
-    const { date, available, booked } = dateResult;
+    const { date, available } = dateResult;
     const availableCount = available.length;
+
+    // Format the date as "Sunday (September 06, 2025)"
+    const formattedDate = (() => {
+      const dateObj = new Date(date);
+      const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
+      const day = dateObj.getDate().toString().padStart(2, '0');
+      const year = dateObj.getFullYear();
+      return `${dayOfWeek} (${month} ${day}, ${year})`;
+    })();
 
     html += `
       <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin: 10px 0;">
-        <h3 style="margin: 0 0 10px 0; color: #374151;">${date}</h3>
+        <h3 style="margin: 0 0 10px 0; color: #374151;">${formattedDate}</h3>
         <p style="margin: 5px 0;"><strong>Available:</strong> ${availableCount} slots</p>
     `;
 
