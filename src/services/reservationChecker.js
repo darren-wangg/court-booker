@@ -66,7 +66,7 @@ class ReservationChecker {
           "--disable-component-extensions-with-background-pages",
           // Additional Railway-specific flags for resource constraints
           "--memory-pressure-off",
-          "--max_old_space_size=256",
+          "--max_old_space_size=400",
           "--disable-background-networking",
           "--disable-background-timer-throttling",
           "--disable-ipc-flooding-protection",
@@ -99,27 +99,65 @@ class ReservationChecker {
         timeout: NAVIGATION_TIMEOUT,
       };
 
-      // Try to launch Chrome with Railway environment detection
-      try {
-        console.log('🌐 Attempting to launch browser...');
-        console.log(`🌐 Chrome executable path: ${launchOptions.executablePath || 'bundled'}`);
-        this.browser = await puppeteer.launch(launchOptions);
-        console.log('✅ Browser launched successfully');
-      } catch (chromeError) {
-        console.log('⚠️ Chrome launch failed, trying without executable path...');
-        console.log('⚠️ Chrome error:', chromeError.message);
-        
-        // Try with bundled Chrome (remove executablePath)
-        const fallbackOptions = { ...launchOptions };
-        delete fallbackOptions.executablePath;
-        
+      // Try to launch Chrome with intelligent retries for Railway
+      const maxRetries = 3;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          this.browser = await puppeteer.launch(fallbackOptions);
-          console.log('✅ Browser launched successfully with bundled Chrome');
-        } catch (fallbackError) {
-          console.error('❌ Failed to launch browser:', fallbackError.message);
-          throw new Error(`Chrome launch failed: ${fallbackError.message}`);
+          console.log(`🌐 Attempting to launch browser (attempt ${attempt}/${maxRetries})...`);
+          console.log(`🌐 Chrome executable path: ${launchOptions.executablePath || 'bundled'}`);
+          
+          // Add random delay to avoid resource conflicts
+          if (attempt > 1) {
+            const delay = Math.random() * 2000 + 1000; // 1-3 seconds
+            console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          
+          this.browser = await puppeteer.launch(launchOptions);
+          console.log('✅ Browser launched successfully');
+          return; // Success, exit retry loop
+          
+        } catch (chromeError) {
+          lastError = chromeError;
+          console.log(`⚠️ Chrome launch failed (attempt ${attempt}/${maxRetries}): ${chromeError.message}`);
+          
+          // Try fallback without executable path on first failure
+          if (attempt === 1) {
+            try {
+              console.log('🔄 Trying with bundled Chrome...');
+              const fallbackOptions = { ...launchOptions };
+              delete fallbackOptions.executablePath;
+              
+              this.browser = await puppeteer.launch(fallbackOptions);
+              console.log('✅ Browser launched successfully with bundled Chrome');
+              return; // Success, exit retry loop
+              
+            } catch (fallbackError) {
+              console.log(`⚠️ Bundled Chrome also failed: ${fallbackError.message}`);
+              lastError = fallbackError;
+            }
+          }
         }
+      }
+      
+      // All retries failed - check if it's a resource constraint
+      if (lastError && (
+          lastError.message.includes('Resource temporarily unavailable') || 
+          lastError.message.includes('pthread_create') ||
+          lastError.message.includes('fork'))) {
+        console.log('🚨 Railway resource constraints detected after retries - implementing fallback');
+        this.railwayResourceConstraint = true;
+        return; // Don't throw error, allow graceful degradation
+      }
+      
+      throw new Error(`Chrome launch failed after ${maxRetries} attempts: ${lastError?.message}`);
+
+      // Skip browser initialization if resource constraints detected
+      if (this.railwayResourceConstraint) {
+        console.log('⚠️ Skipping browser initialization due to resource constraints');
+        return;
       }
 
       this.page = await this.browser.newPage();
@@ -664,6 +702,18 @@ class ReservationChecker {
   async checkAvailability() {
     try {
       await this.initialize();
+      
+      // Handle Railway resource constraints gracefully
+      if (this.railwayResourceConstraint) {
+        console.log('🚨 Railway resource constraints detected - using fallback notification');
+        await this.sendResourceConstraintNotification();
+        return {
+          success: false,
+          reason: 'Railway resource constraints prevent browser automation',
+          timestamp: new Date().toISOString()
+        };
+      }
+      
       await this.login();
 
       await this.page.waitForSelector("table.reservation-list.secondary-list", {
@@ -725,6 +775,54 @@ class ReservationChecker {
       throw error;
     } finally {
       await this.cleanup();
+    }
+  }
+
+  async sendResourceConstraintNotification() {
+    try {
+      // Check if Gmail SMTP is configured
+      if (!config.gmailSmtpUser || !config.gmailSmtpPassword || !config.notificationEmail) {
+        console.log("Email not configured - skipping resource constraint notification");
+        return;
+      }
+
+      await this.emailService.initialize();
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #e74c3c;">🚨 Railway Resource Constraint Detected</h2>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Issue:</strong> Chrome browser cannot launch due to Railway resource limits</p>
+            <p><strong>Error:</strong> Resource temporarily unavailable (pthread_create/fork failures)</p>
+            <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST</p>
+          </div>
+          
+          <h3>Possible Solutions:</h3>
+          <ul>
+            <li>Upgrade Railway plan for more resources</li>
+            <li>Reduce concurrent processes</li>
+            <li>Implement external scraping service</li>
+            <li>Switch to GitHub Actions for availability checks</li>
+          </ul>
+          
+          <p><em>This is an automated notification from your court booking system.</em></p>
+        </div>
+      `;
+
+      const result = await this.emailService.sendEmail({
+        to: config.notificationEmail,
+        subject: "🚨 Court Checker - Railway Resource Constraint",
+        html: html,
+      });
+
+      if (result.success) {
+        console.log("✅ Resource constraint notification sent successfully");
+      } else {
+        console.error("Failed to send notification:", result.error);
+      }
+    } catch (error) {
+      console.error("Error sending resource constraint notification:", error);
     }
   }
 

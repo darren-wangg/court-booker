@@ -30,7 +30,7 @@ class BookingService {
           "--disable-xss-auditor",
           // Additional Railway-specific flags for resource constraints
           "--memory-pressure-off",
-          "--max_old_space_size=256",
+          "--max_old_space_size=400",
           "--disable-background-networking",
           "--disable-ipc-flooding-protection",
           "--disable-hang-monitor",
