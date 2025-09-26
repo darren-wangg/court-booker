@@ -367,6 +367,10 @@ class GmailWebhook {
         }
       }
 
+      // Clear processed emails set to allow reprocessing of new notifications
+      this.bookingHandler.emailParser.processedEmails.clear();
+      console.log('✅ Cleared processed emails set for fresh processing');
+
       // Check for new booking requests
       const results = await this.bookingHandler.checkAndProcessBookings();
       
