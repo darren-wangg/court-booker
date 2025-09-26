@@ -28,7 +28,8 @@ class ReservationChecker {
       const launchOptions = {
         headless: true,
         defaultViewport: null,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        // Don't set executablePath in Railway - let Puppeteer find Chrome automatically
+        executablePath: process.env.RAILWAY_ENVIRONMENT ? undefined : process.env.PUPPETEER_EXECUTABLE_PATH,
         args: [
           "--no-sandbox",
           "--disable-setuid-sandbox",
