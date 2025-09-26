@@ -38,23 +38,30 @@ class GmailSmtpService {
         }
       });
 
-      // Verify connection with timeout
-      console.log('🔌 Attempting to connect to Gmail SMTP...');
-      console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=465, secure=true, user=${config.gmailSmtpUser}`);
-      try {
-        await Promise.race([
-          this.transporter.verify(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('SMTP connection timeout after 30 seconds')), 30000)
-          )
-        ]);
-        console.log('✅ Gmail SMTP connection verified successfully');
-      } catch (verifyError) {
-        console.error('⚠️ SMTP verification failed:', verifyError.message);
-        console.error('⚠️ SMTP error details:', verifyError);
-        console.log('⚠️ Common causes: 1) Invalid app password, 2) Account security settings, 3) Network/firewall issues');
-        console.log('⚠️ Continuing without SMTP verification - will attempt to send when needed');
-        // Don't throw the error - let the service continue and try to send when needed
+      // Skip SMTP verification in Railway environment to prevent hanging
+      if (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production') {
+        console.log('🚂 Railway environment detected - skipping SMTP verification to prevent hanging');
+        console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=465, secure=true, user=${config.gmailSmtpUser}`);
+        console.log('⚠️ SMTP will be tested when first email is sent');
+      } else {
+        // Verify connection with timeout in local development only
+        console.log('🔌 Attempting to connect to Gmail SMTP...');
+        console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=465, secure=true, user=${config.gmailSmtpUser}`);
+        try {
+          await Promise.race([
+            this.transporter.verify(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('SMTP connection timeout after 30 seconds')), 30000)
+            )
+          ]);
+          console.log('✅ Gmail SMTP connection verified successfully');
+        } catch (verifyError) {
+          console.error('⚠️ SMTP verification failed:', verifyError.message);
+          console.error('⚠️ SMTP error details:', verifyError);
+          console.log('⚠️ Common causes: 1) Invalid app password, 2) Account security settings, 3) Network/firewall issues');
+          console.log('⚠️ Continuing without SMTP verification - will attempt to send when needed');
+          // Don't throw the error - let the service continue and try to send when needed
+        }
       }
     } catch (error) {
       console.error('Failed to initialize Gmail SMTP:', error);
