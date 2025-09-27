@@ -105,6 +105,7 @@ class ReservationChecker {
       // Try to launch Chrome with intelligent retries for Railway
       const maxRetries = 3;
       let lastError = null;
+      let browserLaunched = false;
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -121,7 +122,8 @@ class ReservationChecker {
           this.browser = await puppeteer.launch(launchOptions);
           console.log('✅ Browser launched successfully');
           this.railwayResourceConstraint = false; // Clear any previous constraint flag
-          return; // Success, exit retry loop
+          browserLaunched = true;
+          break; // Success, exit retry loop
           
         } catch (chromeError) {
           lastError = chromeError;
@@ -137,7 +139,8 @@ class ReservationChecker {
               this.browser = await puppeteer.launch(fallbackOptions);
               console.log('✅ Browser launched successfully with bundled Chrome');
               this.railwayResourceConstraint = false; // Clear any previous constraint flag
-              return; // Success, exit retry loop
+              browserLaunched = true;
+              break; // Success, exit retry loop
               
             } catch (fallbackError) {
               console.log(`⚠️ Bundled Chrome also failed: ${fallbackError.message}`);
@@ -147,24 +150,28 @@ class ReservationChecker {
         }
       }
       
-      // All retries failed - check if it's a resource constraint
-      if (lastError && (
-          lastError.message.includes('Resource temporarily unavailable') || 
-          lastError.message.includes('pthread_create') ||
-          lastError.message.includes('fork'))) {
-        console.log('🚨 Railway resource constraints detected after retries - implementing fallback');
-        this.railwayResourceConstraint = true;
-        return; // Don't throw error, allow graceful degradation
+      // Handle browser launch failure
+      if (!browserLaunched) {
+        // All retries failed - check if it's a resource constraint
+        if (lastError && (
+            lastError.message.includes('Resource temporarily unavailable') || 
+            lastError.message.includes('pthread_create') ||
+            lastError.message.includes('fork'))) {
+          console.log('🚨 Railway resource constraints detected after retries - implementing fallback');
+          this.railwayResourceConstraint = true;
+          return; // Don't throw error, allow graceful degradation
+        }
+        
+        throw new Error(`Chrome launch failed after ${maxRetries} attempts: ${lastError?.message}`);
       }
-      
-      throw new Error(`Chrome launch failed after ${maxRetries} attempts: ${lastError?.message}`);
 
-      // Skip browser initialization if resource constraints detected
+      // Skip page creation if resource constraints detected
       if (this.railwayResourceConstraint) {
-        console.log('⚠️ Skipping browser initialization due to resource constraints');
+        console.log('⚠️ Skipping page creation due to resource constraints');
         return;
       }
 
+      // Create page only after successful browser launch
       this.page = await this.browser.newPage();
 
       // Add extra stealth measures for CI environment
@@ -200,6 +207,11 @@ class ReservationChecker {
 
   async login() {
     try {
+      // Check if page was created (resource constraints might prevent this)
+      if (!this.page) {
+        throw new Error('Browser page not available - likely due to Railway resource constraints');
+      }
+      
       await this.page.goto(config.amenityUrl, { waitUntil: "networkidle2" });
 
       // Wait for login form
