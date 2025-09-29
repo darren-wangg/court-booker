@@ -21,6 +21,15 @@ class EmailService {
 
   async sendEmail({ to, subject, html, from = null }) {
     try {
+      // Railway SMTP bypass mode for testing
+      if (process.env.RAILWAY_SMTP_BYPASS === 'true') {
+        console.log('🚂 Railway SMTP bypass mode enabled - simulating email send');
+        console.log(`📧 Would send email to: ${to}`);
+        console.log(`📧 Subject: ${subject}`);
+        console.log('✅ Email simulation completed');
+        return { success: true, messageId: 'bypass-mode-' + Date.now(), bypassed: true };
+      }
+      
       return await this.gmailSmtp.sendEmail({ to, subject, html, from });
     } catch (error) {
       console.error('Error sending email:', error);
