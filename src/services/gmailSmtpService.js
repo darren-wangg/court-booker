@@ -20,14 +20,17 @@ class GmailSmtpService {
           user: config.gmailSmtpUser, // Your Gmail address
           pass: config.gmailSmtpPassword, // App-specific password
         },
-        // Add timeout and connection configuration for Railway
-        connectionTimeout: 60000, // 60 seconds
-        greetingTimeout: 30000,   // 30 seconds
-        socketTimeout: 60000,     // 60 seconds
-        // Retry configuration
+        // Aggressive timeout configuration for Railway environment
+        connectionTimeout: 120000, // 2 minutes for Railway
+        greetingTimeout: 60000,    // 1 minute 
+        socketTimeout: 120000,     // 2 minutes
+        // Railway-specific retry configuration
         pool: false,
         maxConnections: 1,
         maxMessages: 1,
+        // Add Railway-specific settings
+        disableFileAccess: true,
+        disableUrlAccess: true,
         // Gmail SMTP settings - use port 465 with SSL for Railway
         host: 'smtp.gmail.com',
         port: 465,
@@ -70,31 +73,55 @@ class GmailSmtpService {
   }
 
   async sendEmail({ to, subject, html, from = null }) {
-    try {
-      if (!this.transporter) {
-        console.log('🔧 Transporter not initialized, initializing now...');
-        await this.initialize();
+    const maxRetries = 3;
+    let lastError = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        if (!this.transporter) {
+          console.log('🔧 Transporter not initialized, initializing now...');
+          await this.initialize();
+        }
+
+        const mailOptions = {
+          from: from || config.gmailSmtpUser,
+          to: Array.isArray(to) ? to.join(', ') : to,
+          subject: subject,
+          html: html,
+        };
+
+        console.log(`📧 Attempting to send email (attempt ${attempt}/${maxRetries}) to: ${mailOptions.to}`);
+        console.log(`📧 Subject: ${mailOptions.subject}`);
+        
+        const result = await this.transporter.sendMail(mailOptions);
+        console.log('✅ Email sent successfully:', result.messageId);
+        return { success: true, messageId: result.messageId };
+        
+      } catch (error) {
+        lastError = error;
+        console.error(`❌ Email attempt ${attempt}/${maxRetries} failed:`, error.message);
+        
+        // If it's a connection timeout, recreate transporter for next attempt
+        if (error.code === 'ETIMEDOUT' || error.code === 'ECONNRESET') {
+          console.log('🔄 Connection timeout detected, recreating transporter...');
+          this.transporter = null;
+          
+          if (attempt < maxRetries) {
+            const waitTime = attempt * 2000; // Progressive delay: 2s, 4s, 6s
+            console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        } else {
+          // For non-timeout errors, don't retry
+          break;
+        }
       }
-
-      const mailOptions = {
-        from: from || config.gmailSmtpUser,
-        to: Array.isArray(to) ? to.join(', ') : to,
-        subject: subject,
-        html: html,
-      };
-
-      console.log(`📧 Attempting to send email to: ${mailOptions.to}`);
-      console.log(`📧 Subject: ${mailOptions.subject}`);
-      
-      const result = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Email sent successfully:', result.messageId);
-      return { success: true, messageId: result.messageId };
-    } catch (error) {
-      console.error('❌ Failed to send email:', error.message);
-      console.error('❌ Email error details:', error);
-      console.log('❌ Check: 1) SMTP credentials, 2) App password validity, 3) Account security settings');
-      return { success: false, error: error.message };
     }
+    
+    console.error('❌ All email attempts failed. Final error:', lastError);
+    console.error('❌ Email error details:', lastError);
+    console.log('❌ Check: 1) SMTP credentials, 2) App password validity, 3) Account security settings');
+    return { success: false, error: lastError.message };
   }
 }
 
