@@ -121,6 +121,8 @@ class ReservationChecker {
           "--disable-software-rasterizer"
         ],
         timeout: NAVIGATION_TIMEOUT,
+        // Add protocol timeout for Railway
+        protocolTimeout: 180000, // 3 minutes for slow Railway operations
       };
 
       // Try to launch Chrome with intelligent retries for Railway
