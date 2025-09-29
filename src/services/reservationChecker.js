@@ -67,9 +67,9 @@ class ReservationChecker {
           "--disable-file-system",
           "--disable-client-side-phishing-detection",
           "--disable-component-extensions-with-background-pages",
-          // Additional Railway-specific flags for resource constraints
+          // Extreme Railway resource limiting for EAGAIN spawn errors
           "--memory-pressure-off",
-          "--max_old_space_size=400",
+          "--max_old_space_size=256",
           "--disable-background-networking",
           "--disable-background-timer-throttling",
           "--disable-ipc-flooding-protection",
@@ -84,20 +84,41 @@ class ReservationChecker {
           "--disable-checker-imaging",
           "--disable-new-content-rendering-timeout",
           "--disable-image-animation-resync",
-          // Thread and process limiting for Railway
+          // Extreme thread and process limiting to prevent EAGAIN
           "--single-process",
-          "--disable-gpu-process",
+          "--disable-zygote",
+          "--disable-gpu-process", 
+          "--disable-utility-process",
+          "--disable-network-service",
+          "--disable-audio-service-sandbox",
+          "--disable-service-worker",
+          "--disable-shared-workers",
+          "--disable-background-mode",
+          "--disable-component-update",
+          "--disable-breakpad",
+          "--disable-crash-reporter",
           "--disable-renderer-backgrounding",
           "--disable-background-timer-throttling",
           "--disable-backgrounding-occluded-windows",
           "--disable-features=VizDisplayCompositor",
-          "--disable-features=AudioServiceOutOfProcess",
+          "--disable-features=AudioServiceOutOfProcess", 
           "--disable-features=MediaFoundationVideoCapture",
+          "--disable-features=OutOfBlinkCors",
+          "--disable-features=NetworkService",
+          "--disable-features=VizHitTestSurfaceLayer",
           "--renderer-process-limit=1",
           "--max-gum-fps=5",
           "--force-color-profile=srgb",
           "--disable-accelerated-video-decode",
-          "--disable-accelerated-video-encode"
+          "--disable-accelerated-video-encode",
+          // Minimal threading to reduce system load
+          "--disable-threaded-compositing",
+          "--disable-partial-raster",
+          "--disable-skia-runtime-opts",
+          "--disable-lcd-text",
+          "--disable-font-subpixel-positioning",
+          "--disable-gpu-sandbox",
+          "--disable-software-rasterizer"
         ],
         timeout: NAVIGATION_TIMEOUT,
       };
@@ -156,7 +177,10 @@ class ReservationChecker {
         if (lastError && (
             lastError.message.includes('Resource temporarily unavailable') || 
             lastError.message.includes('pthread_create') ||
-            lastError.message.includes('fork'))) {
+            lastError.message.includes('fork') ||
+            lastError.message.includes('EAGAIN') ||
+            lastError.message.includes('spawn') ||
+            lastError.message.includes('Failed to launch the browser process'))) {
           console.log('🚨 Railway resource constraints detected after retries - implementing fallback');
           this.railwayResourceConstraint = true;
           return; // Don't throw error, allow graceful degradation
