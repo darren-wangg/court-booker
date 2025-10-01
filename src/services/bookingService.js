@@ -1,5 +1,6 @@
 const puppeteer = require("puppeteer");
 const config = require('../config');
+const RailwayChrome = require('../utils/railwayChrome');
 
 class BookingService {
   constructor(userId = null) {
@@ -13,144 +14,16 @@ class BookingService {
       // Initialize resource constraint flag
       this.railwayResourceConstraint = false;
       
-      // Railway-specific Puppeteer configuration
-      const launchOptions = {
-        headless: true,
-        defaultViewport: null,
-        // Don't use system Chrome in Railway - use bundled version
-        executablePath: process.env.RAILWAY_ENVIRONMENT ? undefined : (process.env.PUPPETEER_EXECUTABLE_PATH || undefined),
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--single-process",
-          "--disable-gpu",
-          "--disable-web-security",
-          "--disable-features=VizDisplayCompositor",
-          "--disable-background-timer-throttling",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-renderer-backgrounding",
-          "--disable-extensions",
-          "--disable-plugins",
-          "--disable-images",
-          "--memory-pressure-off",
-          "--max_old_space_size=256",
-          "--disable-background-networking",
-          "--disable-ipc-flooding-protection",
-          "--disable-hang-monitor",
-          "--no-startup-window",
-          "--disable-canvas-aa",
-          "--disable-2d-canvas-clip-aa",
-          "--disable-gl-drawing-for-tests",
-          "--disable-software-rasterizer",
-          "--disable-background-mode",
-          "--disable-features=AudioServiceOutOfProcess",
-          "--disable-dev-tools",
-          "--disable-logging",
-          "--silent",
-          "--log-level=3",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote",
-          "--disable-xss-auditor",
-          "--disable-prompt-on-repost",
-          "--disable-domain-reliability",
-          "--disable-features=TranslateUI",
-          "--disable-features=BlinkGenPropertyTrees",
-          "--run-all-compositor-stages-before-draw",
-          "--disable-threaded-animation",
-          "--disable-threaded-scrolling",
-          "--disable-checker-imaging",
-          "--disable-new-content-rendering-timeout",
-          "--disable-image-animation-resync",
-          "--disable-gpu-process",
-          "--disable-features=MediaFoundationVideoCapture",
-          "--renderer-process-limit=1",
-          "--max-gum-fps=5",
-          "--force-color-profile=srgb",
-          "--disable-accelerated-video-decode",
-          "--disable-accelerated-video-encode"
-        ],
-        timeout: 60000,
-        protocolTimeout: 300000,
-        pipe: true,
-        slowMo: 250,
-        handleSIGINT: false,
-        handleSIGTERM: false,
-        handleSIGHUP: false
-      };
-
-      // Try to launch Chrome with intelligent retries for Railway
-      const maxRetries = process.env.RAILWAY_ENVIRONMENT ? 5 : 3;
-      let lastError = null;
-      let browserLaunched = false;
+      // Use Railway-optimized Chrome launcher
+      this.browser = await RailwayChrome.launchWithRetries(5);
       
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          console.log(`🌐 Attempting to launch browser for booking (attempt ${attempt}/${maxRetries})...`);
-          console.log(`🌐 Chrome executable path: ${launchOptions.executablePath || 'bundled'}`);
-          
-          // Add progressive delay to avoid resource conflicts
-          if (attempt > 1) {
-            const delay = process.env.RAILWAY_ENVIRONMENT 
-              ? Math.random() * 5000 + (attempt * 2000) // 2-7 seconds, increasing with attempts
-              : Math.random() * 1000 + (attempt * 500); // 0.5-1.5 seconds
-            console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            
-            // Force garbage collection if available
-            if (global.gc) {
-              global.gc();
-            }
-          }
-          
-          this.browser = await puppeteer.launch(launchOptions);
-          console.log('✅ Browser launched successfully for booking');
-          this.railwayResourceConstraint = false; // Clear any previous constraint flag
-          browserLaunched = true;
-          break; // Success, exit retry loop
-          
-        } catch (chromeError) {
-          lastError = chromeError;
-          console.log(`⚠️ Chrome launch failed for booking (attempt ${attempt}/${maxRetries}): ${chromeError.message}`);
-          
-          // Try fallback without executable path on first failure
-          if (attempt === 1) {
-            try {
-              console.log('🔄 Trying with bundled Chrome for booking...');
-              const fallbackOptions = { ...launchOptions };
-              delete fallbackOptions.executablePath;
-              
-              this.browser = await puppeteer.launch(fallbackOptions);
-              console.log('✅ Browser launched successfully with bundled Chrome for booking');
-              this.railwayResourceConstraint = false; // Clear any previous constraint flag
-              browserLaunched = true;
-              break; // Success, exit retry loop
-              
-            } catch (fallbackError) {
-              console.log(`⚠️ Bundled Chrome also failed for booking: ${fallbackError.message}`);
-            }
-          }
-        }
+      if (!this.browser) {
+        console.log('🚨 Railway resource constraints detected for booking - implementing fallback');
+        this.railwayResourceConstraint = true;
+        return; // Don't throw error, allow graceful degradation
       }
       
-      // Handle browser launch failure
-      if (!browserLaunched) {
-        // All retries failed - check if it's a resource constraint
-        if (lastError && (
-            lastError.message.includes('Resource temporarily unavailable') || 
-            lastError.message.includes('pthread_create') ||
-            lastError.message.includes('fork') ||
-            lastError.message.includes('EAGAIN') ||
-            lastError.message.includes('spawn') ||
-            lastError.message.includes('Failed to launch the browser process'))) {
-          console.log('🚨 Railway resource constraints detected for booking - implementing fallback');
-          this.railwayResourceConstraint = true;
-          return; // Don't throw error, allow graceful degradation
-        }
-        
-        throw new Error(`Chrome launch failed for booking after ${maxRetries} attempts: ${lastError?.message}`);
-      }
+      this.railwayResourceConstraint = false;
 
       // Skip page creation if resource constraints detected
       if (this.railwayResourceConstraint) {

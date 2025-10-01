@@ -4,6 +4,7 @@ const cheerio = require("cheerio");
 const EmailService = require("./emailService");
 const config = require("../config");
 const { generateEmailHTML } = require("../email-templates/availabilities");
+const RailwayChrome = require("../utils/railwayChrome");
 
 // Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
