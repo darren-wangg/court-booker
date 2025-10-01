@@ -11,24 +11,49 @@ class BookingService {
 
   async initialize() {
     try {
+      console.log('🌐 Initializing booking service...');
+      
+      // Detect Railway environment
+      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || 
+                       process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PROJECT_NAME;
+      
       // Initialize resource constraint flag
       this.railwayResourceConstraint = false;
       
-      // Use Railway-optimized Chrome launcher
-      this.browser = await RailwayChrome.launchWithRetries(5);
-      
-      if (!this.browser) {
-        console.log('🚨 Railway resource constraints detected for booking - implementing fallback');
+      // Skip Chrome entirely in Railway for booking service too
+      if (isRailway) {
+        console.log('🚂 Railway environment detected - Chrome not supported for booking');
+        console.log('⚠️ Booking requests will need to be handled manually or via GitHub Actions');
         this.railwayResourceConstraint = true;
-        return; // Don't throw error, allow graceful degradation
+        this.browser = null;
+        this.page = null;
+        return; // Skip all Chrome initialization
       }
       
-      this.railwayResourceConstraint = false;
+      // Standard Chrome initialization for non-Railway
+      const launchOptions = {
+        headless: true,
+        defaultViewport: null,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--no-first-run"
+        ],
+        timeout: 60000,
+        handleSIGINT: false,
+        handleSIGTERM: false,
+        handleSIGHUP: false
+      };
 
-      // Skip page creation if resource constraints detected
-      if (this.railwayResourceConstraint) {
-        console.log('⚠️ Skipping booking page creation due to resource constraints');
-        return;
+      try {
+        this.browser = await puppeteer.launch(launchOptions);
+        console.log('✅ Booking browser launched successfully');
+      } catch (error) {
+        console.error('❌ Failed to launch booking browser:', error.message);
+        throw error;
       }
 
       // Create page only after successful browser launch
@@ -46,6 +71,11 @@ class BookingService {
   async login() {
     try {
       console.log('🔐 Logging into amenity system...');
+      
+      // Check if page was created (Railway constraints might prevent this)
+      if (!this.page) {
+        throw new Error('Browser page not available - likely due to Railway resource constraints');
+      }
       
       await this.page.goto(config.amenityUrl, { waitUntil: "networkidle2" });
 

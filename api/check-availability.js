@@ -20,9 +20,26 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Check failed:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    
+    // Handle specific Railway errors more gracefully
+    if (error.message && (
+        error.message.includes('EAGAIN') ||
+        error.message.includes('Resource temporarily unavailable') ||
+        error.message.includes('spawn') ||
+        error.message.includes('Target closed'))) {
+      console.log('🚂 Railway resource constraint detected in API handler');
+      res.status(503).json({
+        success: false,
+        error: 'Service temporarily unavailable due to resource constraints',
+        details: 'Railway environment cannot launch Chrome browser',
+        fallbackMode: true,
+        retryAfter: 300 // 5 minutes
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
   }
 }
