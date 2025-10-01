@@ -68,8 +68,11 @@ ENV RAILWAY_ENVIRONMENT=true
 # Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 3000
+# Expose port (Railway uses PORT environment variable)
+EXPOSE $PORT
+
+# Set default port if not provided by Railway
+ENV PORT=3000
 
 # Start the application
 CMD ["pnpm", "start"]

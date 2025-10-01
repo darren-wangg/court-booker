@@ -9,6 +9,7 @@ async function startWebhook() {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔌 Port: ${process.env.PORT || '3000'}`);
   console.log(`📧 Webhook URL: ${process.env.WEBHOOK_URL || 'http://localhost:3000'}`);
+  console.log(`🚂 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'false'}`);
   
   try {
     // Validate required environment variables
