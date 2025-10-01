@@ -30,151 +30,86 @@ class ReservationChecker {
       // Initialize resource constraint flag
       this.railwayResourceConstraint = false;
       
-      // Railway-specific Puppeteer configuration
+      // Railway-specific Puppeteer configuration with enhanced stability
+      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID;
+      
       const launchOptions = {
-        headless: true,
+        headless: isRailway ? 'new' : true, // Use 'new' headless mode for Railway
         defaultViewport: null,
-        // Don't use system Chrome in Railway - use bundled version
-        executablePath: process.env.RAILWAY_ENVIRONMENT ? undefined : (process.env.PUPPETEER_EXECUTABLE_PATH || undefined),
-        args: [
+        executablePath: isRailway ? undefined : (process.env.PUPPETEER_EXECUTABLE_PATH || undefined),
+        args: isRailway ? [
+          // Core stability flags for Railway
           "--no-sandbox",
           "--disable-setuid-sandbox",
           "--disable-dev-shm-usage",
-          "--disable-accelerated-2d-canvas",
-          "--no-first-run",
-          "--no-zygote", 
           "--disable-gpu",
+          "--disable-gpu-sandbox",
+          "--single-process",
+          "--no-zygote",
           "--disable-background-timer-throttling",
           "--disable-backgrounding-occluded-windows",
           "--disable-renderer-backgrounding",
-          "--disable-web-security",
           "--disable-features=VizDisplayCompositor",
-          "--single-process",
-          "--disable-xss-auditor",
-          "--disable-extensions",
-          "--disable-plugins",
-          "--disable-images",
-          // Note: Removed --disable-javascript as it prevents form interactions
+          "--disable-features=AudioServiceOutOfProcess",
+          "--disable-features=VizHitTestSurfaceLayer",
+          "--disable-ipc-flooding-protection",
+          "--memory-pressure-off",
+          "--max_old_space_size=512",
+          "--js-flags=--max-old-space-size=512",
+          // Network and resource optimization
+          "--disable-background-networking",
           "--disable-default-apps",
+          "--disable-extensions",
           "--disable-sync",
           "--disable-translate",
+          "--disable-plugins",
+          "--disable-images",
+          "--disable-web-security",
+          "--disable-xss-auditor",
+          "--no-first-run",
           "--hide-scrollbars",
           "--mute-audio",
           "--no-default-browser-check",
           "--no-pings",
           "--disable-logging",
-          "--disable-permissions-api",
-          "--disable-presentation-api",
-          "--disable-print-preview",
-          "--disable-speech-api",
-          "--disable-file-system",
-          "--disable-client-side-phishing-detection",
-          "--disable-component-extensions-with-background-pages",
-          // Extreme Railway resource limiting for EAGAIN spawn errors
-          "--memory-pressure-off",
-          "--max_old_space_size=256",
-          "--disable-background-networking",
-          "--disable-background-timer-throttling",
-          "--disable-ipc-flooding-protection",
-          "--disable-hang-monitor",
-          "--disable-prompt-on-repost",
-          "--disable-domain-reliability",
-          "--disable-features=TranslateUI",
-          "--disable-features=BlinkGenPropertyTrees",
-          "--run-all-compositor-stages-before-draw",
-          "--disable-threaded-animation",
-          "--disable-threaded-scrolling",
-          "--disable-checker-imaging",
-          "--disable-new-content-rendering-timeout",
-          "--disable-image-animation-resync",
-          // Extreme thread and process limiting to prevent EAGAIN
-          "--single-process",
-          "--disable-zygote",
-          "--disable-gpu-process", 
-          "--disable-utility-process",
-          "--disable-network-service",
-          "--disable-audio-service-sandbox",
-          "--disable-service-worker",
-          "--disable-shared-workers",
-          "--disable-background-mode",
-          "--disable-component-update",
-          "--disable-breakpad",
-          "--disable-crash-reporter",
-          "--disable-renderer-backgrounding",
-          "--disable-background-timer-throttling",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-features=VizDisplayCompositor",
-          "--disable-features=AudioServiceOutOfProcess", 
-          "--disable-features=MediaFoundationVideoCapture",
-          "--disable-features=OutOfBlinkCors",
-          "--disable-features=NetworkService",
-          "--disable-features=VizHitTestSurfaceLayer",
-          "--renderer-process-limit=1",
-          "--max-gum-fps=5",
-          "--force-color-profile=srgb",
-          "--disable-accelerated-video-decode",
-          "--disable-accelerated-video-encode",
-          // Minimal threading to reduce system load
-          "--disable-threaded-compositing",
-          "--disable-partial-raster",
-          "--disable-skia-runtime-opts",
-          "--disable-lcd-text",
-          "--disable-font-subpixel-positioning",
-          "--disable-gpu-sandbox",
-          "--disable-software-rasterizer",
-          // Additional Railway-specific flags to reduce resource usage
-          "--disable-field-trial-config",
-          "--disable-back-forward-cache",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-ipc-flooding-protection",
-          "--disable-component-extensions-with-background-pages",
-          "--disable-default-apps",
-          "--disable-extensions",
-          "--disable-component-update",
-          "--disable-client-side-phishing-detection",
-          "--disable-hang-monitor",
-          "--disable-prompt-on-repost",
-          "--disable-domain-reliability",
-          "--disable-sync",
-          "--disable-translate",
-          "--disable-windows10-custom-titlebar",
-          "--use-mock-keychain",
-          "--disable-blink-features=AutomationControlled",
-          "--no-startup-window",
-          "--disable-software-rasterizer",
-          "--disable-canvas-aa",
-          "--disable-2d-canvas-clip-aa",
-          "--disable-gl-drawing-for-tests",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--disable-gpu-sandbox",
-          "--disable-software-rasterizer",
-          "--disable-background-mode",
-          "--disable-background-timer-throttling",
-          "--disable-renderer-backgrounding",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-features=VizDisplayCompositor,AudioServiceOutOfProcess",
-          "--disable-dev-tools",
-          "--disable-extensions-file-access-check",
-          "--disable-extensions-http-throttling",
-          "--disable-logging",
           "--silent",
           "--log-level=3",
-          "--disable-device-discovery-notifications"
+          // Process management
+          "--renderer-process-limit=1",
+          "--disable-hang-monitor",
+          "--disable-prompt-on-repost",
+          "--disable-component-update",
+          "--disable-breakpad",
+          "--disable-crash-reporter"
+        ] : [
+          // Standard flags for non-Railway environments
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--no-first-run",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-renderer-backgrounding"
         ],
         timeout: NAVIGATION_TIMEOUT,
-        // Add protocol timeout for Railway and GitHub Actions
-        protocolTimeout: process.env.GITHUB_ACTIONS ? 600000 : (process.env.RAILWAY_ENVIRONMENT ? 300000 : 120000), // 10min for GHA, 5min for Railway, 2min default
-        // Railway-specific resource constraints
-        pipe: process.env.RAILWAY_ENVIRONMENT ? true : false, // Use pipe instead of websocket in Railway
-        slowMo: process.env.RAILWAY_ENVIRONMENT ? 250 : 0, // Add delays in Railway
+        protocolTimeout: isRailway ? 180000 : 120000, // 3min for Railway, 2min default
+        pipe: isRailway, // Use pipe instead of websocket in Railway
+        slowMo: isRailway ? 500 : 0, // Add more delay in Railway
         handleSIGINT: false,
         handleSIGTERM: false,
-        handleSIGHUP: false
+        handleSIGHUP: false,
+        // Additional Railway-specific options
+        ...(isRailway && {
+          dumpio: false,
+          devtools: false,
+          ignoreDefaultArgs: ['--disable-extensions'],
+          waitForInitialPage: false
+        })
       };
 
       // Try to launch Chrome with intelligent retries for Railway
-      const maxRetries = process.env.RAILWAY_ENVIRONMENT ? 5 : 3;
+      const maxRetries = isRailway ? 10 : 3; // More retries for Railway
       let lastError = null;
       let browserLaunched = false;
       
@@ -183,32 +118,61 @@ class ReservationChecker {
           console.log(`🌐 Attempting to launch browser (attempt ${attempt}/${maxRetries})...`);
           console.log(`🌐 Chrome executable path: ${launchOptions.executablePath || 'bundled'}`);
           
-          // Add progressive delay to avoid resource conflicts
+          // Progressive delay with exponential backoff for Railway
           if (attempt > 1) {
-            const delay = process.env.RAILWAY_ENVIRONMENT 
-              ? Math.random() * 5000 + (attempt * 2000) // 2-7 seconds, increasing with attempts
-              : Math.random() * 2000 + 1000; // 1-3 seconds
+            const baseDelay = isRailway ? 3000 : 1000;
+            const maxDelay = isRailway ? 15000 : 5000;
+            const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), maxDelay) + (Math.random() * 2000);
             console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             
-            // Force garbage collection if available
-            if (global.gc) {
-              global.gc();
+            // Force garbage collection and process cleanup in Railway
+            if (isRailway) {
+              if (global.gc) global.gc();
+              // Small delay to let system recover
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
           
-          this.browser = await puppeteer.launch(launchOptions);
+          // Special handling for Target closed errors in Railway
+          if (isRailway && lastError && lastError.message.includes('Target closed')) {
+            console.log('🔧 Detected Target closed error - using minimal config');
+            const minimalOptions = {
+              headless: 'new',
+              args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox', 
+                '--disable-dev-shm-usage',
+                '--single-process',
+                '--disable-gpu'
+              ],
+              timeout: 60000,
+              protocolTimeout: 90000,
+              pipe: true,
+              waitForInitialPage: false
+            };
+            this.browser = await puppeteer.launch(minimalOptions);
+          } else {
+            this.browser = await puppeteer.launch(launchOptions);
+          }
+          
           console.log('✅ Browser launched successfully');
-          this.railwayResourceConstraint = false; // Clear any previous constraint flag
+          this.railwayResourceConstraint = false;
           browserLaunched = true;
-          break; // Success, exit retry loop
+          break;
           
         } catch (chromeError) {
           lastError = chromeError;
           console.log(`⚠️ Chrome launch failed (attempt ${attempt}/${maxRetries}): ${chromeError.message}`);
           
-          // Try fallback without executable path on first failure
-          if (attempt === 1) {
+          // Target closed errors need special handling in Railway
+          if (isRailway && chromeError.message.includes('Target closed')) {
+            console.log('🔍 Target closed error detected - this is a Railway-specific issue');
+            continue; // Try again with the special handling above
+          }
+          
+          // Try fallback without executable path on first failure (non-Railway only)
+          if (attempt === 1 && !isRailway) {
             try {
               console.log('🔄 Trying with bundled Chrome...');
               const fallbackOptions = { ...launchOptions };
@@ -216,9 +180,9 @@ class ReservationChecker {
               
               this.browser = await puppeteer.launch(fallbackOptions);
               console.log('✅ Browser launched successfully with bundled Chrome');
-              this.railwayResourceConstraint = false; // Clear any previous constraint flag
+              this.railwayResourceConstraint = false;
               browserLaunched = true;
-              break; // Success, exit retry loop
+              break;
               
             } catch (fallbackError) {
               console.log(`⚠️ Bundled Chrome also failed: ${fallbackError.message}`);
@@ -230,15 +194,17 @@ class ReservationChecker {
       
       // Handle browser launch failure
       if (!browserLaunched) {
-        // All retries failed - check if it's a resource constraint
-        if (lastError && (
+        // Check for Railway-specific errors including Target closed
+        if (isRailway && lastError && (
             lastError.message.includes('Resource temporarily unavailable') || 
             lastError.message.includes('pthread_create') ||
             lastError.message.includes('fork') ||
             lastError.message.includes('EAGAIN') ||
             lastError.message.includes('spawn') ||
-            lastError.message.includes('Failed to launch the browser process'))) {
-          console.log('🚨 Railway resource constraints detected after retries - implementing fallback');
+            lastError.message.includes('Failed to launch the browser process') ||
+            lastError.message.includes('Target closed') ||
+            lastError.message.includes('Protocol error'))) {
+          console.log('🚨 Railway Chrome constraints detected - enabling fallback mode');
           this.railwayResourceConstraint = true;
           return; // Don't throw error, allow graceful degradation
         }
@@ -937,6 +903,59 @@ class ReservationChecker {
       throw error;
     } finally {
       await this.cleanup();
+    }
+  }
+
+  async sendFallbackModeNotification() {
+    try {
+      // Check if Gmail SMTP is configured
+      if (!config.gmailSmtpUser || !config.gmailSmtpPassword || !config.notificationEmail) {
+        console.log("Email not configured - skipping fallback mode notification");
+        return;
+      }
+
+      await this.emailService.initialize();
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #f39c12;">⚠️ Court Checker - Fallback Mode Active</h2>
+          
+          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f39c12;">
+            <p><strong>Status:</strong> Chrome browser unavailable on Railway - using fallback mode</p>
+            <p><strong>Issue:</strong> Protocol error (Target closed) - Railway resource limitations</p>
+            <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST</p>
+          </div>
+          
+          <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #155724; margin-top: 0;">✅ Service Status</h3>
+            <p>The court booking system is still monitoring for email requests and will continue to operate normally. Only the automated availability checking is temporarily limited.</p>
+          </div>
+          
+          <h3>What this means:</h3>
+          <ul>
+            <li>✅ Email booking requests are still processed</li>
+            <li>✅ Manual triggers still work</li>
+            <li>⚠️ Automated availability checking is limited</li>
+            <li>💡 Consider using GitHub Actions for availability checks</li>
+          </ul>
+          
+          <p><em>This is an automated notification from your court booking system.</em></p>
+        </div>
+      `;
+
+      const result = await this.emailService.sendEmail({
+        to: config.notificationEmail,
+        subject: "⚠️ Court Checker - Railway Fallback Mode",
+        html: html,
+      });
+
+      if (result.success) {
+        console.log("✅ Fallback mode notification sent successfully");
+      } else {
+        console.error("Failed to send notification:", result.error);
+      }
+    } catch (error) {
+      console.error("Error sending fallback mode notification:", error);
     }
   }
 
