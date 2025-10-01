@@ -20,14 +20,10 @@ class BookingService {
       // Initialize resource constraint flag
       this.railwayResourceConstraint = false;
       
-      // Skip Chrome entirely in Railway for booking service too
+      // Railway-specific Chrome configuration for booking
       if (isRailway) {
-        console.log('🚂 Railway environment detected - Chrome not supported for booking');
-        console.log('⚠️ Booking requests will need to be handled manually or via GitHub Actions');
-        this.railwayResourceConstraint = true;
-        this.browser = null;
-        this.page = null;
-        return; // Skip all Chrome initialization
+        console.log('🚂 Railway environment detected - using minimal Chrome for booking');
+        return this.initializeRailwayBookingChrome();
       }
       
       // Standard Chrome initialization for non-Railway
@@ -65,6 +61,62 @@ class BookingService {
     } catch (error) {
       console.error("Failed to initialize booking service: ", error);
       throw error;
+    }
+  }
+
+  async initializeRailwayBookingChrome() {
+    try {
+      console.log('🚂 Initializing Railway booking Chrome...');
+      
+      // Minimal configuration focused on form interactions
+      const railwayOptions = {
+        headless: 'shell',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--single-process',
+          '--no-zygote',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--memory-pressure-off',
+          '--max_old_space_size=256',
+          '--disable-extensions',
+          '--disable-sync',
+          '--disable-translate',
+          '--mute-audio'
+        ],
+        timeout: 30000,
+        protocolTimeout: 45000,
+        pipe: true,
+        defaultViewport: { width: 800, height: 600 },
+        handleSIGINT: false,
+        handleSIGTERM: false,
+        handleSIGHUP: false
+      };
+
+      try {
+        this.browser = await puppeteer.launch(railwayOptions);
+        console.log('✅ Railway booking Chrome launched');
+        
+        this.page = await this.browser.newPage();
+        this.page.setDefaultNavigationTimeout(30000);
+        this.page.setDefaultTimeout(15000);
+        
+        console.log('✅ Railway booking service initialized');
+        
+      } catch (error) {
+        console.error('❌ Railway booking Chrome failed:', error.message);
+        this.railwayResourceConstraint = true;
+        this.browser = null;
+        this.page = null;
+      }
+      
+    } catch (error) {
+      console.error('❌ Railway booking initialization failed:', error.message);
+      this.railwayResourceConstraint = true;
     }
   }
 

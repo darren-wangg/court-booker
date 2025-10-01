@@ -34,14 +34,10 @@ class ReservationChecker {
       // Initialize resource constraint flag
       this.railwayResourceConstraint = false;
       
-      // Skip Chrome entirely in Railway due to consistent EAGAIN errors
+      // Railway-specific Chrome configuration to force it to work
       if (isRailway) {
-        console.log('🚂 Railway environment detected - Chrome not supported due to resource constraints');
-        console.log('🔄 Enabling Railway-native fallback mode for email monitoring');
-        this.railwayResourceConstraint = true;
-        this.browser = null;
-        this.page = null;
-        return; // Skip all Chrome initialization
+        console.log('🚂 Railway environment detected - using ultra-minimal Chrome configuration');
+        return this.initializeRailwayChrome();
       }
       
       console.log('🌐 Initializing Puppeteer browser...');
@@ -152,6 +148,204 @@ class ReservationChecker {
     } catch (error) {
       console.error("Failed to initialize browser: ", error);
       throw error;
+    }
+  }
+
+  async initializeRailwayChrome() {
+    try {
+      console.log('🚂 Initializing Railway-optimized Chrome...');
+      
+      // Ultra-minimal Chrome configuration for Railway resource constraints
+      const railwayOptions = {
+        headless: 'shell', // Use shell headless mode (most minimal)
+        args: [
+          // Core sandbox and security flags
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          
+          // Disable all GPU acceleration
+          '--disable-gpu',
+          '--disable-gpu-sandbox',
+          '--disable-gpu-process',
+          '--disable-accelerated-2d-canvas',
+          '--disable-accelerated-video-decode',
+          '--disable-accelerated-video-encode',
+          
+          // Force single process mode
+          '--single-process',
+          '--no-zygote',
+          
+          // Disable all background processes
+          '--disable-background-networking',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-background-mode',
+          
+          // Disable all extensions and plugins
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-component-extensions-with-background-pages',
+          '--disable-default-apps',
+          
+          // Disable audio and media
+          '--mute-audio',
+          '--disable-audio-service-sandbox',
+          
+          // Disable networking features
+          '--disable-sync',
+          '--disable-translate',
+          '--disable-domain-reliability',
+          '--disable-background-networking',
+          
+          // Minimal memory usage
+          '--memory-pressure-off',
+          '--max_old_space_size=256',
+          '--js-flags=--max-old-space-size=256',
+          
+          // Disable unnecessary features
+          '--disable-web-security',
+          '--disable-features=VizDisplayCompositor',
+          '--disable-features=AudioServiceOutOfProcess',
+          '--disable-features=VizHitTestSurfaceLayer',
+          '--disable-ipc-flooding-protection',
+          '--disable-hang-monitor',
+          '--disable-prompt-on-repost',
+          '--disable-component-update',
+          '--disable-breakpad',
+          '--disable-crash-reporter',
+          '--disable-client-side-phishing-detection',
+          
+          // Disable image loading to save resources
+          '--disable-images',
+          '--disable-javascript', // We'll re-enable if needed
+          
+          // Process limits
+          '--renderer-process-limit=1',
+          '--disable-threaded-compositing',
+          '--disable-threaded-scrolling',
+          
+          // Minimal logging
+          '--silent',
+          '--log-level=3',
+          '--disable-logging'
+        ],
+        ignoreDefaultArgs: [
+          '--disable-extensions', // We handle this manually
+          '--enable-automation',   // Reduce automation detection
+          '--disable-background-timer-throttling' // We handle this manually
+        ],
+        timeout: 30000, // Shorter timeout
+        protocolTimeout: 45000,
+        pipe: true, // Use pipe instead of websocket
+        slowMo: 0,
+        defaultViewport: { width: 800, height: 600 }, // Smaller viewport
+        handleSIGINT: false,
+        handleSIGTERM: false,
+        handleSIGHUP: false,
+        dumpio: false,
+        devtools: false,
+        waitForInitialPage: false
+      };
+
+      // Force process cleanup before launching
+      await this.forceProcessCleanup();
+
+      let browser = null;
+      let lastError = null;
+      
+      // Try ultra-minimal approach first
+      for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+          console.log(`🚂 Railway Chrome launch attempt ${attempt}/5`);
+          
+          if (attempt > 1) {
+            // Progressive wait with cleanup
+            await this.forceProcessCleanup();
+            const delay = attempt * 2000; // 2s, 4s, 6s, 8s
+            console.log(`⏳ Waiting ${delay}ms for Railway resources...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+
+          browser = await puppeteer.launch(railwayOptions);
+          console.log('✅ Railway Chrome launched successfully');
+          break;
+          
+        } catch (error) {
+          lastError = error;
+          console.log(`⚠️ Railway Chrome attempt ${attempt} failed: ${error.message}`);
+          
+          // Try progressively more minimal configs
+          if (attempt === 2) {
+            // Remove JavaScript disable if it's causing issues
+            railwayOptions.args = railwayOptions.args.filter(arg => arg !== '--disable-javascript');
+            console.log('🔧 Re-enabling JavaScript for form interactions');
+          }
+          
+          if (attempt === 3) {
+            // Try with absolute minimal args
+            railwayOptions.args = [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--single-process',
+              '--disable-gpu'
+            ];
+            console.log('🔧 Using absolute minimal Chrome args');
+          }
+          
+          if (attempt === 4) {
+            // Try bundled Chrome
+            delete railwayOptions.executablePath;
+            console.log('🔧 Forcing bundled Chrome');
+          }
+        }
+      }
+
+      if (!browser) {
+        console.log('❌ All Railway Chrome attempts failed, enabling fallback mode');
+        this.railwayResourceConstraint = true;
+        return;
+      }
+
+      this.browser = browser;
+      this.page = await browser.newPage();
+      
+      // Minimal page configuration
+      this.page.setDefaultNavigationTimeout(30000);
+      this.page.setDefaultTimeout(15000);
+      
+      // Set minimal user agent
+      await this.page.setUserAgent('Mozilla/5.0 (Linux; Ubuntu)');
+      
+      console.log('✅ Railway Chrome initialization completed');
+      
+    } catch (error) {
+      console.error('❌ Railway Chrome initialization failed:', error.message);
+      this.railwayResourceConstraint = true;
+    }
+  }
+
+  async forceProcessCleanup() {
+    try {
+      // Force garbage collection
+      if (global.gc) {
+        global.gc();
+      }
+      
+      // Small delay to let system recover
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Try to kill any hanging Chrome processes (Railway-safe)
+      try {
+        const { execSync } = require('child_process');
+        execSync('pkill -f "chrome" || true', { stdio: 'ignore', timeout: 2000 });
+      } catch (killError) {
+        // Ignore kill errors - this is just cleanup
+      }
+    } catch (error) {
+      // Ignore cleanup errors
     }
   }
 
@@ -945,25 +1139,41 @@ class ReservationChecker {
 
   async cleanup() {
     try {
+      console.log('🧹 Starting cleanup...');
+      
+      // Close page first
       if (this.page) {
-        await this.page.close();
+        try {
+          await this.page.close();
+          console.log('✅ Page closed');
+        } catch (pageError) {
+          console.log('⚠️ Page close error:', pageError.message);
+        }
         this.page = null;
       }
+      
+      // Close browser
       if (this.browser) {
-        await this.browser.close();
+        try {
+          await this.browser.close();
+          console.log('✅ Browser closed');
+        } catch (browserError) {
+          console.log('⚠️ Browser close error:', browserError.message);
+        }
         this.browser = null;
       }
+      
+      // Railway-specific aggressive cleanup
+      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || 
+                       process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PROJECT_NAME;
+      
+      if (isRailway) {
+        await this.forceProcessCleanup();
+        console.log('🚂 Railway cleanup completed');
+      }
+      
     } catch (error) {
       console.error('⚠️ Error during cleanup:', error.message);
-      // Force kill any remaining processes in Railway
-      if (process.env.RAILWAY_ENVIRONMENT) {
-        try {
-          const { execSync } = require('child_process');
-          execSync('pkill -f chrome', { stdio: 'ignore' });
-        } catch (killError) {
-          // Ignore kill errors
-        }
-      }
     }
   }
 }
