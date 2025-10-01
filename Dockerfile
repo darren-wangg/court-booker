@@ -1,5 +1,5 @@
-# Use Node.js 18
-FROM node:18-slim
+# Use Node.js 20 (required for File constructor used by undici)
+FROM node:20-slim
 
 # Install system dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
