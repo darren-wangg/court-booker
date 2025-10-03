@@ -9,7 +9,7 @@ async function startWebhook() {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🔌 Port: ${process.env.PORT || '3000'}`);
   console.log(`📧 Webhook URL: ${process.env.WEBHOOK_URL || 'http://localhost:3000'}`);
-  console.log(`🚂 Railway Environment: ${process.env.RAILWAY_ENVIRONMENT || 'false'}`);
+  console.log(`✈️ Fly.io Environment: ${process.env.FLY_APP_NAME || 'false'}`);
   
   try {
     // Validate required environment variables
@@ -45,7 +45,7 @@ async function startWebhook() {
     console.log('\n🔄 Server is running... Press Ctrl+C to stop');
     console.log('🔄 Process will stay alive until manually terminated');
     
-    // Prevent the process from exiting - this is critical for Railway
+    // Prevent the process from exiting - this is critical for Fly.io
     process.stdin.resume();
     
     // Add a keep-alive mechanism
@@ -59,15 +59,15 @@ async function startWebhook() {
     global.webhook = webhook;
     global.keepAliveInterval = keepAliveInterval;
     
-    // Add a more aggressive keep-alive for Railway
-    const railwayKeepAlive = setInterval(() => {
+    // Add a more aggressive keep-alive for Fly.io
+    const flyioKeepAlive = setInterval(() => {
       // This ensures the event loop stays active
       if (global.webhook && global.webhook.server) {
-        console.log('💓 Railway keep-alive - server is active');
+        console.log('💓 Fly.io keep-alive - server is active');
       }
     }, 10000); // Every 10 seconds
     
-    global.railwayKeepAlive = railwayKeepAlive;
+    global.flyioKeepAlive = flyioKeepAlive;
     
   } catch (error) {
     console.error('❌ Failed to start webhook server:', error.message);
@@ -84,23 +84,23 @@ process.on('SIGINT', async () => {
   if (global.keepAliveInterval) {
     clearInterval(global.keepAliveInterval);
   }
-  if (global.railwayKeepAlive) {
-    clearInterval(global.railwayKeepAlive);
+  if (global.flyioKeepAlive) {
+    clearInterval(global.flyioKeepAlive);
   }
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n🛑 Received SIGTERM - Shutting down webhook server...');
-  console.log('🛑 SIGTERM received - this usually means Railway is terminating the process');
+  console.log('🛑 SIGTERM received - this usually means Fly.io is terminating the process');
   if (global.webhook) {
     await global.webhook.stop();
   }
   if (global.keepAliveInterval) {
     clearInterval(global.keepAliveInterval);
   }
-  if (global.railwayKeepAlive) {
-    clearInterval(global.railwayKeepAlive);
+  if (global.flyioKeepAlive) {
+    clearInterval(global.flyioKeepAlive);
   }
   process.exit(0);
 });

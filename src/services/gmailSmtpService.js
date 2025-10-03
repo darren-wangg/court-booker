@@ -20,18 +20,18 @@ class GmailSmtpService {
           user: config.gmailSmtpUser, // Your Gmail address
           pass: config.gmailSmtpPassword, // App-specific password
         },
-        // Aggressive timeout configuration for Railway environment
-        connectionTimeout: 120000, // 2 minutes for Railway
+        // Aggressive timeout configuration for production environment
+        connectionTimeout: 120000, // 2 minutes for production
         greetingTimeout: 60000,    // 1 minute 
         socketTimeout: 120000,     // 2 minutes
-        // Railway-specific retry configuration
+        // production-specific retry configuration
         pool: false,
         maxConnections: 1,
         maxMessages: 1,
-        // Add Railway-specific settings
+        // Add production-specific settings
         disableFileAccess: true,
         disableUrlAccess: true,
-        // Gmail SMTP settings - use port 465 with SSL for Railway
+        // Gmail SMTP settings - use port 465 with SSL for production
         host: 'smtp.gmail.com',
         port: 465,
         secure: true, // Use SSL (secure: true for port 465)

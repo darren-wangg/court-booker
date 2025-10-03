@@ -1,6 +1,6 @@
 const puppeteer = require("puppeteer");
 const config = require('../config');
-const RailwayChrome = require('../utils/railwayChrome');
+const FlyioChrome = require('../utils/flyioChrome');
 
 class BookingService {
   constructor(userId = null) {
@@ -17,7 +17,7 @@ class BookingService {
       const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
       
       // Initialize resource constraint flag (legacy name for compatibility)
-      this.railwayResourceConstraint = false;
+      this.resourceConstraint = false;
       
       // Fly.io-optimized Chrome configuration for booking
       if (isFlyio) {
@@ -108,7 +108,7 @@ class BookingService {
         
       } catch (error) {
         console.error('❌ Fly.io booking Chrome failed:', error.message);
-        this.railwayResourceConstraint = true;
+        this.resourceConstraint = true;
         this.browser = null;
         this.page = null;
       }
@@ -390,7 +390,7 @@ class BookingService {
       await this.initialize();
       
       // Check if resource constraints prevent booking
-      if (this.railwayResourceConstraint) {
+      if (this.resourceConstraint) {
         console.log('🚨 Cannot complete booking due to resource constraints');
         return {
           success: false,

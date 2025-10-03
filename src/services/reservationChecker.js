@@ -4,7 +4,7 @@ const cheerio = require("cheerio");
 const EmailService = require("./emailService");
 const config = require("../config");
 const { generateEmailHTML } = require("../email-templates/availabilities");
-const RailwayChrome = require("../utils/railwayChrome");
+const FlyioChrome = require("../utils/flyioChrome");
 
 // Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
@@ -31,7 +31,7 @@ class ReservationChecker {
       const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
       
       // Initialize resource constraint flag (legacy name for compatibility)
-      this.railwayResourceConstraint = false;
+      this.resourceConstraint = false;
       
       // Fly.io-optimized Chrome configuration
       if (isFlyio) {
@@ -41,7 +41,7 @@ class ReservationChecker {
       
       console.log('🌐 Initializing Puppeteer browser...');
       
-      // Standard configuration for non-Railway environments
+      // Standard configuration for local development
       const launchOptions = {
         headless: true,
         defaultViewport: null,
@@ -63,7 +63,7 @@ class ReservationChecker {
         handleSIGHUP: false
       };
 
-      // Try to launch Chrome with basic retry logic for non-Railway
+      // Try to launch Chrome with basic retry logic for local development
       const maxRetries = 3;
       let lastError = null;
       let browserLaunched = false;
@@ -304,7 +304,7 @@ class ReservationChecker {
 
       if (!browser) {
         console.log('❌ All Fly.io Chrome attempts failed, enabling fallback mode');
-        this.railwayResourceConstraint = true;
+        this.resourceConstraint = true;
         return;
       }
 
@@ -902,7 +902,7 @@ class ReservationChecker {
       await this.initialize();
       
       // Handle resource constraints gracefully
-      if (this.railwayResourceConstraint) {
+      if (this.resourceConstraint) {
         console.log('✈️ Resource constraints detected - using fallback mode');
         const fallbackResult = await this.checkAvailabilityFallback();
         

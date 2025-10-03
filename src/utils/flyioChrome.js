@@ -1,17 +1,17 @@
 const puppeteer = require("puppeteer");
 
 /**
- * Railway-optimized Chrome launch configuration
+ * Fly.io-optimized Chrome launch configuration
  * Handles Protocol errors and resource constraints
  */
-class RailwayChrome {
-  static getExtremeRailwayLaunchOptions() {
+class FlyioChrome {
+  static getExtremeFlyioLaunchOptions() {
     return {
       headless: true,
       defaultViewport: null,
-      executablePath: undefined, // Always use bundled Chrome on Railway
+      executablePath: undefined, // Always use bundled Chrome on Fly.io
       args: [
-        // Core Railway requirements
+        // Core Fly.io requirements
         "--no-sandbox",
         "--disable-setuid-sandbox", 
         "--disable-dev-shm-usage",
@@ -134,9 +134,9 @@ class RailwayChrome {
   }
 
   static async launchWithRetries(maxRetries = 5) {
-    console.log('🚂 Launching Chrome with extreme Railway optimizations...');
+    console.log('✈️ Launching Chrome with extreme Fly.io optimizations...');
     
-    const launchOptions = this.getExtremeRailwayLaunchOptions();
+    const launchOptions = this.getExtremeFlyioLaunchOptions();
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -160,7 +160,7 @@ class RailwayChrome {
         }
         
         const browser = await puppeteer.launch(launchOptions);
-        console.log('✅ Chrome launched successfully with Railway optimizations');
+        console.log('✅ Chrome launched successfully with Fly.io optimizations');
         
         // Test the connection immediately
         const pages = await browser.pages();
@@ -212,7 +212,7 @@ class RailwayChrome {
     );
     
     if (isResourceConstraint) {
-      console.log('🚨 Railway resource constraints detected');
+      console.log('🚨 Fly.io resource constraints detected');
       return null; // Return null for graceful handling
     }
     
@@ -220,4 +220,4 @@ class RailwayChrome {
   }
 }
 
-module.exports = RailwayChrome;
+module.exports = FlyioChrome;

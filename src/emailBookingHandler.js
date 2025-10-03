@@ -97,7 +97,7 @@ class EmailBookingHandler {
               console.log('✅ Email service ready');
             } catch (error) {
               console.error('⚠️ Email service initialization failed, availability check will continue without email notifications:', error.message);
-              console.log('⚠️ This is likely due to Railway network restrictions or SMTP configuration issues');
+              console.log('⚠️ This is likely due to network restrictions or SMTP configuration issues');
             }
             
             // Run availability check
@@ -108,7 +108,7 @@ class EmailBookingHandler {
               console.log('🔍 Availability check completed:', result ? 'Success' : 'Failed');
             } catch (availabilityError) {
               console.error('❌ Availability check failed:', availabilityError.message);
-              console.log('⚠️ This is likely due to Puppeteer/Chrome issues in Railway');
+              console.log('⚠️ This is likely due to Puppeteer/Chrome issues in production environment');
               result = null;
             }
             
