@@ -63,16 +63,15 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
 ENV CHROME_BIN=/usr/bin/google-chrome
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
-ENV RAILWAY_ENVIRONMENT=true
 
 # Copy source code
 COPY . .
 
-# Expose port (Railway uses PORT environment variable)
+# Expose port
 EXPOSE $PORT
 
-# Set default port if not provided by Railway
-ENV PORT=3000
+# Set default port
+ENV PORT=8080
 
 # Start the application
 CMD ["pnpm", "start"]
