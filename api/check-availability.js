@@ -21,17 +21,17 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Check failed:', error);
     
-    // Handle specific Railway errors more gracefully
+    // Handle specific Chrome launch errors more gracefully
     if (error.message && (
         error.message.includes('EAGAIN') ||
         error.message.includes('Resource temporarily unavailable') ||
         error.message.includes('spawn') ||
         error.message.includes('Target closed'))) {
-      console.log('🚂 Railway resource constraint detected in API handler');
+      console.log('🚨 System resource constraint detected in API handler');
       res.status(503).json({
         success: false,
         error: 'Service temporarily unavailable due to resource constraints',
-        details: 'Railway environment cannot launch Chrome browser',
+        details: 'System cannot launch Chrome browser',
         fallbackMode: true,
         retryAfter: 300 // 5 minutes
       });

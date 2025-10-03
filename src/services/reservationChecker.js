@@ -27,17 +27,16 @@ class ReservationChecker {
     try {
       console.log('🌐 Initializing browser service...');
       
-      // Detect Railway environment
-      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || 
-                       process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PROJECT_NAME;
+      // Detect Fly.io environment
+      const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
       
-      // Initialize resource constraint flag
+      // Initialize resource constraint flag (legacy name for compatibility)
       this.railwayResourceConstraint = false;
       
-      // Railway-specific Chrome configuration to force it to work
-      if (isRailway) {
-        console.log('🚂 Railway environment detected - using ultra-minimal Chrome configuration');
-        return this.initializeRailwayChrome();
+      // Fly.io-optimized Chrome configuration
+      if (isFlyio) {
+        console.log('✈️ Fly.io environment detected - using optimized Chrome configuration');
+        return this.initializeFlyioChrome();
       }
       
       console.log('🌐 Initializing Puppeteer browser...');
@@ -151,12 +150,12 @@ class ReservationChecker {
     }
   }
 
-  async initializeRailwayChrome() {
+  async initializeFlyioChrome() {
     try {
-      console.log('🚂 Initializing Railway-optimized Chrome...');
+      console.log('✈️ Initializing Fly.io-optimized Chrome...');
       
-      // Ultra-minimal Chrome configuration for Railway resource constraints
-      const railwayOptions = {
+      // Optimized Chrome configuration for Fly.io environment
+      const flyioOptions = {
         headless: 'shell', // Use shell headless mode (most minimal)
         args: [
           // Core sandbox and security flags
@@ -258,34 +257,34 @@ class ReservationChecker {
       // Try ultra-minimal approach first
       for (let attempt = 1; attempt <= 5; attempt++) {
         try {
-          console.log(`🚂 Railway Chrome launch attempt ${attempt}/5`);
+          console.log(`✈️ Fly.io Chrome launch attempt ${attempt}/5`);
           
           if (attempt > 1) {
             // Progressive wait with cleanup
             await this.forceProcessCleanup();
             const delay = attempt * 2000; // 2s, 4s, 6s, 8s
-            console.log(`⏳ Waiting ${delay}ms for Railway resources...`);
+            console.log(`⏳ Waiting ${delay}ms for Fly.io resources...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
 
-          browser = await puppeteer.launch(railwayOptions);
-          console.log('✅ Railway Chrome launched successfully');
+          browser = await puppeteer.launch(flyioOptions);
+          console.log('✅ Fly.io Chrome launched successfully');
           break;
           
         } catch (error) {
           lastError = error;
-          console.log(`⚠️ Railway Chrome attempt ${attempt} failed: ${error.message}`);
+          console.log(`⚠️ Fly.io Chrome attempt ${attempt} failed: ${error.message}`);
           
           // Try progressively more minimal configs
           if (attempt === 2) {
             // Remove JavaScript disable if it's causing issues
-            railwayOptions.args = railwayOptions.args.filter(arg => arg !== '--disable-javascript');
+            flyioOptions.args = flyioOptions.args.filter(arg => arg !== '--disable-javascript');
             console.log('🔧 Re-enabling JavaScript for form interactions');
           }
           
           if (attempt === 3) {
             // Try with absolute minimal args
-            railwayOptions.args = [
+            flyioOptions.args = [
               '--no-sandbox',
               '--disable-setuid-sandbox',
               '--disable-dev-shm-usage',
@@ -297,14 +296,14 @@ class ReservationChecker {
           
           if (attempt === 4) {
             // Try bundled Chrome
-            delete railwayOptions.executablePath;
+            delete flyioOptions.executablePath;
             console.log('🔧 Forcing bundled Chrome');
           }
         }
       }
 
       if (!browser) {
-        console.log('❌ All Railway Chrome attempts failed, enabling fallback mode');
+        console.log('❌ All Fly.io Chrome attempts failed, enabling fallback mode');
         this.railwayResourceConstraint = true;
         return;
       }
@@ -319,10 +318,10 @@ class ReservationChecker {
       // Set minimal user agent
       await this.page.setUserAgent('Mozilla/5.0 (Linux; Ubuntu)');
       
-      console.log('✅ Railway Chrome initialization completed');
+      console.log('✅ Fly.io Chrome initialization completed');
       
     } catch (error) {
-      console.error('❌ Railway Chrome initialization failed:', error.message);
+      console.error('❌ Fly.io Chrome initialization failed:', error.message);
       this.railwayResourceConstraint = true;
     }
   }
@@ -337,7 +336,7 @@ class ReservationChecker {
       // Small delay to let system recover
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Try to kill any hanging Chrome processes (Railway-safe)
+      // Try to kill any hanging Chrome processes (Fly.io-safe)
       try {
         const { execSync } = require('child_process');
         execSync('pkill -f "chrome" || true', { stdio: 'ignore', timeout: 2000 });
@@ -349,10 +348,10 @@ class ReservationChecker {
     }
   }
 
-  // Railway-native fallback for when Chrome is unavailable
-  async checkAvailabilityRailwayFallback() {
+  // Fly.io fallback for when Chrome is unavailable
+  async checkAvailabilityFallback() {
     try {
-      console.log('🚂 Railway fallback mode - monitoring email requests only');
+      console.log('✈️ Fly.io fallback mode - monitoring email requests only');
       
       // Generate realistic fallback data to keep the system functional
       const next7Days = this.getNext7Days();
@@ -372,15 +371,15 @@ class ReservationChecker {
         totalAvailableSlots: 0, // Unknown in fallback mode
         checkedAt: new Date().toISOString(),
         fallbackMode: true,
-        railwayCompatibilityMode: true,
-        message: 'Railway fallback mode active - email booking functionality preserved'
+        flyioCompatibilityMode: true,
+        message: 'Fly.io fallback mode active - email booking functionality preserved'
       };
       
     } catch (error) {
-      console.error('❌ Railway fallback failed:', error.message);
+      console.error('❌ Fly.io fallback failed:', error.message);
       return {
         success: false,
-        error: 'Railway fallback mode failed',
+        error: 'Fly.io fallback mode failed',
         timestamp: new Date().toISOString()
       };
     }
@@ -390,7 +389,7 @@ class ReservationChecker {
     try {
       // Check if page was created (resource constraints might prevent this)
       if (!this.page) {
-        throw new Error('Browser page not available - likely due to Railway resource constraints');
+        throw new Error('Browser page not available - likely due to resource constraints');
       }
       
       await this.page.goto(config.amenityUrl, { waitUntil: "networkidle2" });
@@ -902,13 +901,13 @@ class ReservationChecker {
     try {
       await this.initialize();
       
-      // Handle Railway resource constraints gracefully
+      // Handle resource constraints gracefully
       if (this.railwayResourceConstraint) {
-        console.log('🚂 Railway resource constraints detected - using Railway fallback mode');
-        const fallbackResult = await this.checkAvailabilityRailwayFallback();
+        console.log('✈️ Resource constraints detected - using fallback mode');
+        const fallbackResult = await this.checkAvailabilityFallback();
         
         if (fallbackResult.success) {
-          console.log('✅ Railway fallback mode completed successfully');
+          console.log('✅ Fallback mode completed successfully');
           // Send email notification about fallback mode
           await this.sendFallbackModeNotification();
           // Send the fallback results as a normal email report
@@ -918,17 +917,17 @@ class ReservationChecker {
             totalAvailableSlots: fallbackResult.totalAvailableSlots,
             dates: fallbackResult.dates,
             emailSent: true,
-            message: 'Railway fallback mode - email monitoring active',
+            message: 'Fallback mode - email monitoring active',
             fallbackMode: true,
-            railwayCompatibilityMode: true,
+            flyioCompatibilityMode: true,
             timestamp: new Date().toISOString()
           };
         } else {
-          console.log('❌ Railway fallback mode failed');
+          console.log('❌ Fallback mode failed');
           await this.sendResourceConstraintNotification();
           return {
             success: false,
-            reason: 'Railway fallback mode failed',
+            reason: 'Fallback mode failed',
             timestamp: new Date().toISOString()
           };
         }
@@ -1013,8 +1012,8 @@ class ReservationChecker {
           <h2 style="color: #f39c12;">⚠️ Court Checker - Fallback Mode Active</h2>
           
           <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f39c12;">
-            <p><strong>Status:</strong> Chrome browser unavailable on Railway - using fallback mode</p>
-            <p><strong>Issue:</strong> Protocol error (Target closed) - Railway resource limitations</p>
+            <p><strong>Status:</strong> Chrome browser issues detected - using fallback mode</p>
+            <p><strong>Issue:</strong> Browser initialization failed - using email monitoring only</p>
             <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST</p>
           </div>
           
@@ -1037,7 +1036,7 @@ class ReservationChecker {
 
       const result = await this.emailService.sendEmail({
         to: config.notificationEmail,
-        subject: "⚠️ Court Checker - Railway Fallback Mode",
+        subject: "⚠️ Court Checker - Fallback Mode Active",
         html: html,
       });
 
@@ -1063,17 +1062,17 @@ class ReservationChecker {
 
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #e74c3c;">🚨 Railway Resource Constraint Detected</h2>
+          <h2 style="color: #e74c3c;">🚨 System Resource Constraint Detected</h2>
           
           <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Issue:</strong> Chrome browser cannot launch due to Railway resource limits</p>
+            <p><strong>Issue:</strong> Chrome browser cannot launch due to system resource limits</p>
             <p><strong>Error:</strong> Resource temporarily unavailable (pthread_create/fork failures)</p>
             <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST</p>
           </div>
           
           <h3>Possible Solutions:</h3>
           <ul>
-            <li>Upgrade Railway plan for more resources</li>
+            <li>Restart the application</li>
             <li>Reduce concurrent processes</li>
             <li>Implement external scraping service</li>
             <li>Switch to GitHub Actions for availability checks</li>
@@ -1085,7 +1084,7 @@ class ReservationChecker {
 
       const result = await this.emailService.sendEmail({
         to: config.notificationEmail,
-        subject: "🚨 Court Checker - Railway Resource Constraint",
+        subject: "🚨 Court Checker - System Resource Constraint",
         html: html,
       });
 
@@ -1163,13 +1162,12 @@ class ReservationChecker {
         this.browser = null;
       }
       
-      // Railway-specific aggressive cleanup
-      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || 
-                       process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PROJECT_NAME;
+      // Fly.io-specific aggressive cleanup
+      const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
       
-      if (isRailway) {
+      if (isFlyio) {
         await this.forceProcessCleanup();
-        console.log('🚂 Railway cleanup completed');
+        console.log('✈️ Fly.io cleanup completed');
       }
       
     } catch (error) {

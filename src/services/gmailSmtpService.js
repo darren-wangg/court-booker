@@ -41,9 +41,9 @@ class GmailSmtpService {
         }
       });
 
-      // Skip SMTP verification in Railway environment to prevent hanging
-      if (process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production') {
-        console.log('🚂 Railway environment detected - skipping SMTP verification to prevent hanging');
+      // Skip SMTP verification in production environment to prevent hanging
+      if (process.env.FLY_APP_NAME || process.env.NODE_ENV === 'production') {
+        console.log('✈️ Production environment detected - skipping SMTP verification to prevent hanging');
         console.log(`🔌 SMTP Config: host=smtp.gmail.com, port=465, secure=true, user=${config.gmailSmtpUser}`);
         console.log('⚠️ SMTP will be tested when first email is sent');
       } else {

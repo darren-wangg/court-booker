@@ -13,20 +13,19 @@ class BookingService {
     try {
       console.log('🌐 Initializing booking service...');
       
-      // Detect Railway environment
-      const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || 
-                       process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PROJECT_NAME;
+      // Detect Fly.io environment
+      const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
       
-      // Initialize resource constraint flag
+      // Initialize resource constraint flag (legacy name for compatibility)
       this.railwayResourceConstraint = false;
       
-      // Railway-specific Chrome configuration for booking
-      if (isRailway) {
-        console.log('🚂 Railway environment detected - using minimal Chrome for booking');
-        return this.initializeRailwayBookingChrome();
+      // Fly.io-optimized Chrome configuration for booking
+      if (isFlyio) {
+        console.log('✈️ Fly.io environment detected - using optimized Chrome for booking');
+        return this.initializeFlyioBookingChrome();
       }
       
-      // Standard Chrome initialization for non-Railway
+      // Standard Chrome initialization for local development
       const launchOptions = {
         headless: true,
         defaultViewport: null,
@@ -64,12 +63,12 @@ class BookingService {
     }
   }
 
-  async initializeRailwayBookingChrome() {
+  async initializeFlyioBookingChrome() {
     try {
-      console.log('🚂 Initializing Railway booking Chrome...');
+      console.log('✈️ Initializing Fly.io booking Chrome...');
       
       // Minimal configuration focused on form interactions
-      const railwayOptions = {
+      const flyioOptions = {
         headless: 'shell',
         args: [
           '--no-sandbox',
@@ -98,24 +97,24 @@ class BookingService {
       };
 
       try {
-        this.browser = await puppeteer.launch(railwayOptions);
-        console.log('✅ Railway booking Chrome launched');
+        this.browser = await puppeteer.launch(flyioOptions);
+        console.log('✅ Fly.io booking Chrome launched');
         
         this.page = await this.browser.newPage();
         this.page.setDefaultNavigationTimeout(30000);
         this.page.setDefaultTimeout(15000);
         
-        console.log('✅ Railway booking service initialized');
+        console.log('✅ Fly.io booking service initialized');
         
       } catch (error) {
-        console.error('❌ Railway booking Chrome failed:', error.message);
+        console.error('❌ Fly.io booking Chrome failed:', error.message);
         this.railwayResourceConstraint = true;
         this.browser = null;
         this.page = null;
       }
       
     } catch (error) {
-      console.error('❌ Railway booking initialization failed:', error.message);
+      console.error('❌ Fly.io booking initialization failed:', error.message);
       this.railwayResourceConstraint = true;
     }
   }
@@ -124,9 +123,9 @@ class BookingService {
     try {
       console.log('🔐 Logging into amenity system...');
       
-      // Check if page was created (Railway constraints might prevent this)
+      // Check if page was created (resource constraints might prevent this)
       if (!this.page) {
-        throw new Error('Browser page not available - likely due to Railway resource constraints');
+        throw new Error('Browser page not available - likely due to resource constraints');
       }
       
       await this.page.goto(config.amenityUrl, { waitUntil: "networkidle2" });
@@ -392,11 +391,11 @@ class BookingService {
       
       // Check if resource constraints prevent booking
       if (this.railwayResourceConstraint) {
-        console.log('🚨 Cannot complete booking due to Railway resource constraints');
+        console.log('🚨 Cannot complete booking due to resource constraints');
         return {
           success: false,
-          error: 'Railway resource constraints detected - Chrome cannot launch',
-          details: 'The booking service cannot launch Chrome browser due to memory/process limits on Railway. This is a temporary infrastructure issue.',
+          error: 'Resource constraints detected - Chrome cannot launch',
+          details: 'The booking service cannot launch Chrome browser due to memory/process limits. This is a temporary infrastructure issue.',
           bookingRequest: bookingRequest,
           retryable: true
         };
