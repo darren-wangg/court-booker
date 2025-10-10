@@ -69,11 +69,15 @@ class EmailBookingHandler {
       
       const results = [];
       
-      // Process manual triggers first
+      // Skip manual triggers in webhook mode to prevent continuous availability checks
+      // Manual triggers should only be processed by scheduled GitHub Actions
       if (manualTriggers.length > 0) {
-        console.log(`🔔 Found ${manualTriggers.length} manual trigger(s)`);
-        
-        for (const trigger of manualTriggers) {
+        if (process.env.FLY_APP_NAME) {
+          console.log(`⏭️ Skipping ${manualTriggers.length} manual trigger(s) in webhook mode - these should be handled by GitHub Actions`);
+        } else {
+          console.log(`🔔 Found ${manualTriggers.length} manual trigger(s)`);
+          
+          for (const trigger of manualTriggers) {
           try {
             console.log(`🔄 Processing manual trigger for ${trigger.user.email}`);
             
@@ -163,6 +167,7 @@ class EmailBookingHandler {
               error: error.message
             });
           }
+        }
         }
       }
       
