@@ -69,13 +69,33 @@ class EmailBookingHandler {
       
       const results = [];
       
-      // Skip manual triggers in webhook mode to prevent continuous availability checks
-      // Manual triggers should only be processed by scheduled GitHub Actions
+      // Process manual triggers with throttling to prevent spam
       if (manualTriggers.length > 0) {
-        if (process.env.FLY_APP_NAME) {
-          console.log(`⏭️ Skipping ${manualTriggers.length} manual trigger(s) in webhook mode - these should be handled by GitHub Actions`);
+        console.log(`🔔 Found ${manualTriggers.length} manual trigger(s)`);
+        
+        // Check cooldown to prevent spam (5 minute cooldown)
+        const now = Date.now();
+        const cooldownKey = 'lastAvailabilityCheck';
+        const lastCheck = global[cooldownKey] || 0;
+        const cooldownPeriod = 5 * 60 * 1000; // 5 minutes
+        
+        if (now - lastCheck < cooldownPeriod) {
+          const remainingCooldown = Math.ceil((cooldownPeriod - (now - lastCheck)) / 1000);
+          console.log(`⏳ Availability check on cooldown for ${remainingCooldown}s - skipping manual triggers`);
+          
+          // Add skipped triggers to results
+          manualTriggers.forEach(trigger => {
+            results.push({
+              type: 'manual_trigger',
+              success: false,
+              user: trigger.user.email,
+              message: `Cooldown active for ${remainingCooldown}s`,
+              skipped: true
+            });
+          });
         } else {
-          console.log(`🔔 Found ${manualTriggers.length} manual trigger(s)`);
+          // Update cooldown timestamp
+          global[cooldownKey] = now;
           
           for (const trigger of manualTriggers) {
           try {
@@ -169,6 +189,7 @@ class EmailBookingHandler {
           }
         }
         }
+      }
       }
       
       // Process booking requests
