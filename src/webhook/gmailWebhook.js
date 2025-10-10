@@ -7,6 +7,8 @@ class GmailWebhook {
     this.app = express();
     this.port = process.env.PORT || 3000;
     this.bookingHandler = new EmailBookingHandler();
+    this.lastAvailabilityCheck = 0; // Timestamp of last availability check
+    this.availabilityCheckCooldown = 5 * 60 * 1000; // 5 minutes cooldown
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -371,8 +373,21 @@ class GmailWebhook {
       this.bookingHandler.emailParser.processedEmails.clear();
       console.log('✅ Cleared processed emails set for fresh processing');
 
+      // Check cooldown before processing to prevent spam
+      const now = Date.now();
+      if (now - this.lastAvailabilityCheck < this.availabilityCheckCooldown) {
+        const remainingCooldown = Math.ceil((this.availabilityCheckCooldown - (now - this.lastAvailabilityCheck)) / 1000);
+        console.log(`⏳ Availability check on cooldown for ${remainingCooldown}s - skipping this notification`);
+        return;
+      }
+
       // Check for new booking requests
       const results = await this.bookingHandler.checkAndProcessBookings();
+      
+      // Update last check timestamp only if we actually processed something
+      if (results.length > 0) {
+        this.lastAvailabilityCheck = now;
+      }
       
       if (results.length > 0) {
         console.log(`✅ Processed ${results.length} booking request(s) from Gmail notification`);

@@ -29,8 +29,10 @@ class FlyioChrome {
         
         // Memory optimizations
         "--memory-pressure-off",
-        "--max_old_space_size=128", // Very low memory limit
+        "--max_old_space_size=64", // Extremely low memory limit
         "--aggressive-memory-allocation",
+        "--disable-dev-shm-usage",
+        "--shm-size=128m",
         
         // Disable unnecessary features
         "--disable-extensions",

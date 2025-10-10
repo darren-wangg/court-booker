@@ -15,9 +15,9 @@ primary_region = 'dfw'
   processes = ['app']
 
 [[vm]]
-  memory = '2gb'
+  memory = '4gb'
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 2
 
 [processes]
   app = 'npm start'

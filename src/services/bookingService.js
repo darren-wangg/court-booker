@@ -115,7 +115,6 @@ class BookingService {
       
     } catch (error) {
       console.error('❌ Fly.io booking initialization failed:', error.message);
-      this.railwayResourceConstraint = true;
     }
   }
 

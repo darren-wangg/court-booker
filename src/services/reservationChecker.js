@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer");
+const PlaywrightBrowser = require("../utils/playwrightBrowser");
 const axios = require("axios");
 const cheerio = require("cheerio");
 const EmailService = require("./emailService");
@@ -79,7 +79,8 @@ class ReservationChecker {
             await new Promise(resolve => setTimeout(resolve, delay));
           }
           
-          this.browser = await puppeteer.launch(launchOptions);
+          const playwrightBrowser = new PlaywrightBrowser();
+          this.browser = await playwrightBrowser.launch(launchOptions);
           console.log('✅ Browser launched successfully');
           browserLaunched = true;
           break;
@@ -95,7 +96,8 @@ class ReservationChecker {
               const fallbackOptions = { ...launchOptions };
               delete fallbackOptions.executablePath;
               
-              this.browser = await puppeteer.launch(fallbackOptions);
+              const playwrightBrowser = new PlaywrightBrowser();
+              this.browser = await playwrightBrowser.launch(fallbackOptions);
               console.log('✅ Browser launched successfully with bundled Chrome');
               browserLaunched = true;
               break;
@@ -267,7 +269,8 @@ class ReservationChecker {
             await new Promise(resolve => setTimeout(resolve, delay));
           }
 
-          browser = await puppeteer.launch(flyioOptions);
+          const playwrightBrowser = new PlaywrightBrowser();
+          browser = await playwrightBrowser.launch(flyioOptions);
           console.log('✅ Fly.io Chrome launched successfully');
           break;
           
