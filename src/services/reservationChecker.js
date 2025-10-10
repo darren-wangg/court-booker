@@ -218,7 +218,7 @@ class ReservationChecker {
           
           // Disable image loading to save resources
           '--disable-images',
-          '--disable-javascript', // We'll re-enable if needed
+          // Note: NOT disabling JavaScript as it's needed for form interactions and table loading
           
           // Process limits
           '--renderer-process-limit=1',
@@ -322,7 +322,6 @@ class ReservationChecker {
       
     } catch (error) {
       console.error('❌ Fly.io Chrome initialization failed:', error.message);
-      this.railwayResourceConstraint = true;
     }
   }
 
@@ -935,8 +934,39 @@ class ReservationChecker {
       
       await this.login();
 
+      // Add debug info for CI
+      if (process.env.GITHUB_ACTIONS) {
+        console.log('🔍 Checking page content after login...');
+        const currentUrl = this.page.url();
+        console.log('🔍 Current URL:', currentUrl);
+        
+        // Check if any tables exist
+        const tableCount = await this.page.$$eval('table', tables => tables.length);
+        console.log('🔍 Total tables found:', tableCount);
+        
+        // Check if our specific table exists
+        const targetTable = await this.page.$("table.reservation-list.secondary-list");
+        console.log('🔍 Target table exists:', !!targetTable);
+        
+        if (!targetTable) {
+          // Debug what tables do exist
+          const tableInfo = await this.page.$$eval('table', tables => 
+            tables.map((table, i) => ({
+              index: i,
+              id: table.id || 'no-id',
+              className: table.className || 'no-class'
+            }))
+          );
+          console.log('🔍 Available tables:', tableInfo);
+        }
+      }
+
+      // Use longer timeout in CI environments
+      const tableTimeout = process.env.GITHUB_ACTIONS ? 30000 : config.timeouts.waitForSelector;
+      console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
+      
       await this.page.waitForSelector("table.reservation-list.secondary-list", {
-        timeout: config.timeouts.waitForSelector,
+        timeout: tableTimeout,
       });
 
       // Load ALL reservations by clicking show more repeatedly
