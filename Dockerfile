@@ -53,8 +53,9 @@ RUN corepack enable && corepack prepare pnpm@10.6.0 --activate
 # Install dependencies
 RUN pnpm install --frozen-lockfile
 
-# Install Playwright browsers (more reliable than manual Chrome install)
-RUN npx playwright install chromium
+# Install Playwright browsers and dependencies (more reliable than manual Chrome install)
+RUN npx playwright install chromium && \
+    npx playwright install-deps chromium
 
 # Copy source code
 COPY . .
