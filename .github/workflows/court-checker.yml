@@ -44,9 +44,10 @@ jobs:
             libasound2t64 \
             xvfb
 
-      - name: Install Puppeteer Chrome
+      - name: Install Playwright browsers
         run: |
-          npx puppeteer browsers install chrome
+          npx playwright install chromium
+          npx playwright install-deps chromium
 
       - name: Start virtual display
         run: |

@@ -99,6 +99,11 @@ class PlaywrightBrowser {
         timeout: options.timeout || 30000
       }),
       
+      // Browser configuration - Puppeteer compatibility
+      setUserAgent: (userAgent) => page.setExtraHTTPHeaders({ 'User-Agent': userAgent }),
+      setExtraHTTPHeaders: (headers) => page.setExtraHTTPHeaders(headers),
+      setViewport: (viewport) => page.setViewportSize(viewport),
+      
       // Playwright-specific improvements
       waitForLoadState: (state = 'networkidle') => page.waitForLoadState(state),
       setViewportSize: (size) => page.setViewportSize(size),
