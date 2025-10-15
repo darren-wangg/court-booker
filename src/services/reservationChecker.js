@@ -964,13 +964,74 @@ class ReservationChecker {
         }
       }
 
-      // Use longer timeout in CI environments
-      const tableTimeout = process.env.GITHUB_ACTIONS ? 30000 : config.timeouts.waitForSelector;
+      // Use much longer timeout for dynamic content loading
+      const tableTimeout = process.env.GITHUB_ACTIONS ? 90000 : config.timeouts.waitForSelector;
       console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
       
-      await this.page.waitForSelector("table.reservation-list.secondary-list", {
-        timeout: tableTimeout,
-      });
+      // Wait for any loading indicators to disappear and table to be visible
+      try {
+        // First wait for the page to fully load
+        await this.page.waitForLoadState('networkidle', { timeout: 30000 });
+        console.log('🔍 Page reached network idle state');
+        
+        // Wait for the table to be visible (not just present in DOM)
+        await this.page.waitForSelector("table.reservation-list.secondary-list", {
+          timeout: tableTimeout,
+          state: 'visible'
+        });
+        console.log('🔍 Reservation table is now visible');
+        
+      } catch (error) {
+        console.log('⚠️ Table wait failed, checking page state...');
+        
+        // Debug: Check what's actually on the page
+        const currentUrl = this.page.url();
+        console.log(`🔍 Current URL: ${currentUrl}`);
+        
+        // Check for any error messages on the page
+        const errorElements = await this.page.$$('div.error, .alert-danger, .validation-summary-errors');
+        if (errorElements.length > 0) {
+          console.log('⚠️ Error elements found on page');
+          for (const el of errorElements) {
+            const text = await el.textContent();
+            console.log(`🔍 Error text: ${text}`);
+          }
+        }
+        
+        // Check if we're still on login page
+        if (currentUrl.includes('LogOn') || currentUrl.includes('login')) {
+          console.log('❌ Still on login page - login may have failed');
+          throw new Error('Login appears to have failed - still on login page');
+        }
+        
+        // Check for loading indicators
+        const loadingElements = await this.page.$$('.loading, .spinner, [data-loading="true"]');
+        if (loadingElements.length > 0) {
+          console.log('🔄 Loading indicators still present, waiting longer...');
+          await this.page.waitForTimeout(10000);
+          
+          // Try to wait for table again
+          await this.page.waitForSelector("table.reservation-list.secondary-list", {
+            timeout: 30000,
+            state: 'visible'
+          });
+        } else {
+          // If no loading indicators, maybe the page structure changed
+          console.log('🔍 Checking for any tables on the page...');
+          const allTables = await this.page.$$('table');
+          console.log(`🔍 Found ${allTables.length} total tables`);
+          
+          if (allTables.length > 0) {
+            for (let i = 0; i < Math.min(allTables.length, 3); i++) {
+              const tableClass = await allTables[i].getAttribute('class');
+              const tableId = await allTables[i].getAttribute('id');
+              console.log(`🔍 Table ${i}: class="${tableClass}", id="${tableId}"`);
+            }
+          }
+          
+          throw error;
+        }
+      }
 
       // Load ALL reservations by clicking show more repeatedly
       const allReservations = await this.loadAllReservations();
