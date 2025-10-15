@@ -85,7 +85,36 @@ class PlaywrightBrowser {
       
       // Form interactions
       type: (selector, text) => page.fill(selector, text),
-      click: (selector, options = {}) => page.click(selector, options),
+      click: async (selector, options = {}) => {
+        // Enhanced click with better error handling for form elements
+        try {
+          // First try to wait for the element to be ready
+          await page.waitForSelector(selector, { 
+            state: 'attached', 
+            timeout: options.timeout || 5000 
+          });
+          
+          // For form elements, try force click if normal click fails
+          try {
+            await page.click(selector, { 
+              ...options, 
+              timeout: 5000,
+              force: false // Try non-force first
+            });
+          } catch (clickError) {
+            console.log(`🔄 Normal click failed, trying force click: ${clickError.message}`);
+            // Force click for stubborn form elements
+            await page.click(selector, { 
+              ...options, 
+              timeout: 5000,
+              force: true 
+            });
+          }
+        } catch (error) {
+          console.error(`❌ Click failed for selector ${selector}:`, error.message);
+          throw error;
+        }
+      },
       
       // Page info
       url: () => page.url(),
