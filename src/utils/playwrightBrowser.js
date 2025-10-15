@@ -16,8 +16,7 @@ class PlaywrightBrowser {
       headless: options.headless !== false,
       args: options.args || [],
       timeout: options.timeout || 30000,
-      // Playwright-specific optimizations for cloud environments
-      channel: 'chrome', // Use system Chrome if available
+      // Use bundled Playwright Chromium for cloud compatibility
     };
 
     // Add cloud-optimized Chrome args if not provided
