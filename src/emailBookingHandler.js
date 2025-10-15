@@ -97,7 +97,10 @@ class EmailBookingHandler {
           // Update cooldown timestamp
           global[cooldownKey] = now;
           
-          for (const trigger of manualTriggers) {
+          // Process only the first manual trigger to avoid race conditions
+          const firstTrigger = manualTriggers[0];
+          if (firstTrigger) {
+            const trigger = firstTrigger;
             try {
               console.log(`🔄 Processing manual trigger for ${trigger.user.email}`);
               
@@ -186,6 +189,20 @@ class EmailBookingHandler {
                 user: trigger.user.email,
                 error: error.message
               });
+            }
+            
+            // Skip remaining triggers to avoid race conditions
+            if (manualTriggers.length > 1) {
+              console.log(`⏩ Skipping ${manualTriggers.length - 1} additional manual triggers to prevent browser conflicts`);
+              for (let i = 1; i < manualTriggers.length; i++) {
+                results.push({
+                  type: 'manual_trigger',
+                  success: false,
+                  user: manualTriggers[i].user.email,
+                  message: 'Skipped to prevent browser race condition',
+                  skipped: true
+                });
+              }
             }
           }
         }
