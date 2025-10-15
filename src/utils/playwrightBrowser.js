@@ -63,10 +63,17 @@ class PlaywrightBrowser {
   createPuppeteerCompatiblePage(page) {
     return {
       // Core navigation
-      goto: (url, options = {}) => page.goto(url, {
-        waitUntil: options.waitUntil || 'networkidle',
-        timeout: options.timeout || 30000
-      }),
+      goto: (url, options = {}) => {
+        // Convert Puppeteer waitUntil values to Playwright equivalents
+        let waitUntil = options.waitUntil || 'networkidle';
+        if (waitUntil === 'networkidle0' || waitUntil === 'networkidle2') {
+          waitUntil = 'networkidle';
+        }
+        return page.goto(url, {
+          waitUntil,
+          timeout: options.timeout || 30000
+        });
+      },
       
       // Selectors - exact same API as Puppeteer
       $: (selector) => page.locator(selector).first(),
@@ -95,9 +102,16 @@ class PlaywrightBrowser {
       close: () => page.close(),
       
       // Advanced interactions
-      waitForNavigation: (options = {}) => page.waitForLoadState(options.waitUntil || 'networkidle', {
-        timeout: options.timeout || 30000
-      }),
+      waitForNavigation: (options = {}) => {
+        // Convert Puppeteer waitUntil values to Playwright equivalents
+        let waitUntil = options.waitUntil || 'networkidle';
+        if (waitUntil === 'networkidle0' || waitUntil === 'networkidle2') {
+          waitUntil = 'networkidle';
+        }
+        return page.waitForLoadState(waitUntil, {
+          timeout: options.timeout || 30000
+        });
+      },
       
       // Browser configuration - Puppeteer compatibility
       setUserAgent: (userAgent) => page.setExtraHTTPHeaders({ 'User-Agent': userAgent }),
