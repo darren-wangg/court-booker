@@ -188,8 +188,6 @@ class EmailBookingHandler {
             });
           }
         }
-        }
-      }
       }
       
       // Process booking requests
