@@ -157,22 +157,23 @@ This document provides a comprehensive technical overview of the Court Booker sy
 
 **Key Features**:
 
-- **Browser Automation**: Uses Puppeteer to control headless Chrome
-- **Dynamic Login**: Multiple selector strategies for robust login
+- **Hybrid Browser Automation**: Uses both Playwright and Puppeteer for maximum compatibility
+- **Flexible Table Detection**: Multiple selector strategies to handle website structure changes
+- **Dynamic Login**: Robust login handling with fallback strategies
+- **Advanced Pagination**: Improved "Show More" clicking with error recovery
 - **HTML Parsing**: Extracts reservation data from complex table structures
-- **Pagination Handling**: Automatically loads all available data
 - **Time Slot Generation**: Creates comprehensive availability reports
 - **Smart Email Throttling**: Only sends emails at scheduled times
 
 **Process Flow**:
 
-1. Initialize Puppeteer browser with optimized settings
-2. Navigate to amenity website and login
-3. Parse HTML tables to extract reservation data
-4. Handle pagination to load all reservations
-5. Generate time slots (10 AM - 10 PM)
-6. Compare available vs booked slots
-7. Generate HTML email report
+1. Initialize browser with Node.js version compatibility handling
+2. Navigate to amenity website with multiple login strategies
+3. Apply flexible table detection with fallback selectors
+4. Handle advanced pagination with robust "Show More" clicking
+5. Parse HTML tables to extract reservation data for 7-day window
+6. Generate time slots (10 AM - 10 PM) and compare availability
+7. Generate HTML email report with accurate data
 8. Send via Gmail SMTP (if scheduled time)
 
 ### 2. Booking Service (`src/services/bookingService.js`)
@@ -340,10 +341,11 @@ This document provides a comprehensive technical overview of the Court Booker sy
 **Features**:
 
 - **Cron Schedule**: Runs every 2 hours (`0 */2 * * *`)
-- **Environment**: Ubuntu latest with Node.js 18
-- **Dependencies**: Chrome installation for Puppeteer
+- **Environment**: Ubuntu latest with Node.js 20 and system dependencies
+- **Browser Support**: Playwright Chromium installation with system libraries
+- **Enhanced Error Handling**: Improved table detection and pagination recovery
 - **Secrets Management**: Secure credential handling
-- **Error Handling**: Comprehensive error logging
+- **Robust Execution**: Comprehensive error logging and recovery mechanisms
 
 **Process**:
 
@@ -424,7 +426,10 @@ HEADLESS_MODE=true
 
 ### Reservation Checker
 
+- **Browser Compatibility**: Node.js version detection and compatibility handling
+- **Table Detection Failures**: Multiple selector strategies with progressive fallbacks
 - **Login Failures**: Multiple selector strategies and retry logic
+- **Pagination Issues**: Robust "Show More" clicking with error recovery mechanisms
 - **Network Issues**: Timeout handling and graceful degradation
 - **Parsing Errors**: Fallback strategies for table structure changes
 - **Email Failures**: Logging without system failure
@@ -484,6 +489,36 @@ HEADLESS_MODE=true
 - **Error Tracking**: Comprehensive error reporting
 - **Performance Metrics**: Execution time tracking
 
+## Recent Improvements & Updates
+
+### November 2024 Enhancements
+
+**Table Detection Robustness**:
+- Added multiple fallback selectors for table detection
+- Implemented progressive selector strategies to handle website changes
+- Enhanced debugging and error reporting for table structure issues
+
+**Pagination System Overhaul**:
+- Fixed "Show More" button clicking with Playwright compatibility improvements
+- Added robust error handling for pagination failures
+- Implemented multiple selector strategies for "Show More" button detection
+- Enhanced pagination debugging and recovery mechanisms
+
+**Browser Compatibility**:
+- Added Node.js version compatibility handling
+- Improved Playwright integration alongside existing Puppeteer support
+- Enhanced error handling for browser automation issues
+
+**GitHub Actions Stability**:
+- Updated workflow to use Node.js 20 for better compatibility
+- Enhanced system dependency installation for Ubuntu environment
+- Improved error logging and artifact collection on failures
+
+**Data Accuracy Improvements**:
+- Fixed date matching logic to correctly identify reservations for all 7 days
+- Enhanced pagination to load complete dataset across multiple pages
+- Improved availability calculation to show realistic booking patterns
+
 ## Future Enhancements
 
 ### Potential Improvements
@@ -491,3 +526,5 @@ HEADLESS_MODE=true
 - **Database Storage**: Track booking history and patterns
 - **Mobile Notifications**: Push notifications for availability
 - **Multi-Court Support**: Handle multiple amenity types
+- **Performance Monitoring**: Add execution time and success rate tracking
+- **Advanced Error Recovery**: Implement retry logic with exponential backoff

@@ -516,22 +516,57 @@ class ReservationChecker {
 
   async clickShowMoreReservations() {
     try {
-      const moreLink = await this.page.$("#get-more");
+      // Try multiple approaches to find and click the "Show More" button
+      let moreLink = await this.page.$("#get-more");
+      
+      if (!moreLink) {
+        // Try alternative selectors
+        const alternativeSelectors = [
+          "a[id='get-more']",
+          "a[href*='more']",
+          "button[id='get-more']",
+          "#more-messages #get-more",
+          "a:has-text('more')"
+        ];
+        
+        for (const selector of alternativeSelectors) {
+          try {
+            moreLink = await this.page.$(selector);
+            if (moreLink) break;
+          } catch (e) {
+            // Continue to next selector
+          }
+        }
+      }
 
       if (moreLink) {
-        const isVisible = await this.page.evaluate((el) => {
-          return el && el.offsetParent !== null;
-        }, moreLink);
-
-        if (isVisible) {
-          await moreLink.click();
-          await new Promise((resolve) =>
-            setTimeout(resolve, config.timeouts.betweenActions)
-          );
-          return true;
-        } else {
-          return false;
+        // Check if visible using a more robust method
+        try {
+          const isVisible = await moreLink.isVisible();
+          
+          if (isVisible) {
+            await moreLink.click();
+            await new Promise((resolve) =>
+              setTimeout(resolve, config.timeouts.betweenActions || 2000)
+            );
+            return true;
+          } else {
+            return false;
+          }
+        } catch (evalError) {
+          // Try clicking anyway as fallback
+          try {
+            await moreLink.click();
+            await new Promise((resolve) =>
+              setTimeout(resolve, config.timeouts.betweenActions || 2000)
+            );
+            return true;
+          } catch (clickError) {
+            return false;
+          }
         }
+      } else {
+        return false;
       }
     } catch (error) {
       console.error("Error clicking show more: ", error.message);
@@ -557,16 +592,51 @@ class ReservationChecker {
           const reservations = [];
 
           const upcomingDiv = document.querySelector("#upcoming-resv");
-          const tables = upcomingDiv
-            ? upcomingDiv.querySelectorAll(
-                "table.reservation-list.secondary-list"
-              )
-            : [];
+          
+          // Try multiple selectors to find tables
+          let tables = [];
+          const possibleSelectors = [
+            "table.reservation-list.secondary-list",
+            "table.reservation-list", 
+            "table.secondary-list",
+            "table[class*='reservation']",
+            "table[class*='list']",
+            "table"
+          ];
+          
+          if (upcomingDiv) {
+            for (const selector of possibleSelectors) {
+              tables = Array.from(upcomingDiv.querySelectorAll(selector));
+              if (tables.length > 0) {
+                debug.tableStructure.push(`Found ${tables.length} tables using selector: ${selector}`);
+                break;
+              }
+            }
+          }
+          
+          // If no tables found in upcoming div, try the whole document
+          if (tables.length === 0) {
+            for (const selector of possibleSelectors) {
+              tables = Array.from(document.querySelectorAll(selector));
+              if (tables.length > 0) {
+                debug.tableStructure.push(`Found ${tables.length} tables in document using selector: ${selector}`);
+                break;
+              }
+            }
+          }
 
           if (tables.length === 0) {
             debug.tableStructure.push(
-              "ERROR: Could not find any reservation tables"
+              "ERROR: Could not find any reservation tables with any selector"
             );
+            
+            // Additional debugging: show what is available
+            const allTables = document.querySelectorAll('table');
+            debug.tableStructure.push(`Total tables on page: ${allTables.length}`);
+            allTables.forEach((table, i) => {
+              debug.tableStructure.push(`Table ${i}: class="${table.className || 'no-class'}", id="${table.id || 'no-id'}"`);
+            });
+            
             return { reservations, hasMore: false, debug, rowCount: 0 };
           }
 
@@ -974,12 +1044,42 @@ class ReservationChecker {
         await this.page.waitForLoadState('networkidle', { timeout: 30000 });
         console.log('🔍 Page reached network idle state');
         
-        // Wait for the table to be visible (not just present in DOM)
-        await this.page.waitForSelector("table.reservation-list.secondary-list", {
-          timeout: tableTimeout,
-          state: 'visible'
-        });
-        console.log('🔍 Reservation table is now visible');
+        // Try multiple possible table selectors
+        const possibleSelectors = [
+          "table.reservation-list.secondary-list",
+          "table.reservation-list", 
+          "table.secondary-list",
+          ".reservation-list table",
+          "#upcoming-resv table",
+          "table[class*='reservation']",
+          "table[class*='list']"
+        ];
+        
+        let foundTable = false;
+        let usedSelector = '';
+        
+        for (const selector of possibleSelectors) {
+          try {
+            console.log(`🔍 Trying selector: ${selector}`);
+            await this.page.waitForSelector(selector, {
+              timeout: 5000,
+              state: 'visible'
+            });
+            console.log(`✅ Found table with selector: ${selector}`);
+            foundTable = true;
+            usedSelector = selector;
+            break;
+          } catch (selectorError) {
+            console.log(`❌ Selector ${selector} not found`);
+            continue;
+          }
+        }
+        
+        if (!foundTable) {
+          throw new Error('No reservation table found with any known selector');
+        }
+        
+        console.log(`🔍 Reservation table is now visible using selector: ${usedSelector}`);
         
       } catch (error) {
         console.log('⚠️ Table wait failed, checking page state...');
@@ -1004,33 +1104,68 @@ class ReservationChecker {
           throw new Error('Login appears to have failed - still on login page');
         }
         
+        // Enhanced debugging: Check all elements that might contain tables
+        console.log('🔍 Enhanced debugging - checking all page structure...');
+        const pageStructure = await this.page.evaluate(() => {
+          const info = {
+            allTables: [],
+            upcomingDiv: null,
+            bodyClasses: document.body?.className || 'no-body-class',
+            pageTitle: document.title || 'no-title'
+          };
+          
+          // Check all tables
+          const tables = document.querySelectorAll('table');
+          tables.forEach((table, i) => {
+            info.allTables.push({
+              index: i,
+              id: table.id || 'no-id',
+              className: table.className || 'no-class',
+              hasRows: table.querySelectorAll('tr').length,
+              parentClass: table.parentElement?.className || 'no-parent-class'
+            });
+          });
+          
+          // Check upcoming-resv div
+          const upcomingDiv = document.querySelector('#upcoming-resv');
+          if (upcomingDiv) {
+            info.upcomingDiv = {
+              found: true,
+              className: upcomingDiv.className || 'no-class',
+              childrenCount: upcomingDiv.children.length,
+              innerText: upcomingDiv.innerText?.substring(0, 200) || 'no-text'
+            };
+          } else {
+            info.upcomingDiv = { found: false };
+          }
+          
+          return info;
+        });
+        
+        console.log('🔍 Page structure analysis:', JSON.stringify(pageStructure, null, 2));
+        
         // Check for loading indicators
         const loadingElements = await this.page.$$('.loading, .spinner, [data-loading="true"]');
         if (loadingElements.length > 0) {
           console.log('🔄 Loading indicators still present, waiting longer...');
-          await this.page.waitForTimeout(10000);
+          await this.page.waitForTimeout(15000);
           
-          // Try to wait for table again
-          await this.page.waitForSelector("table.reservation-list.secondary-list", {
-            timeout: 30000,
-            state: 'visible'
-          });
-        } else {
-          // If no loading indicators, maybe the page structure changed
-          console.log('🔍 Checking for any tables on the page...');
-          const allTables = await this.page.$$('table');
-          console.log(`🔍 Found ${allTables.length} total tables`);
-          
-          if (allTables.length > 0) {
-            for (let i = 0; i < Math.min(allTables.length, 3); i++) {
-              const tableClass = await allTables[i].getAttribute('class');
-              const tableId = await allTables[i].getAttribute('id');
-              console.log(`🔍 Table ${i}: class="${tableClass}", id="${tableId}"`);
+          // Try all selectors again after waiting
+          for (const selector of possibleSelectors) {
+            try {
+              await this.page.waitForSelector(selector, {
+                timeout: 10000,
+                state: 'visible'
+              });
+              console.log(`✅ Found table after extended wait with selector: ${selector}`);
+              return; // Success, exit the function
+            } catch (retryError) {
+              continue;
             }
           }
-          
-          throw error;
         }
+        
+        throw error;
       }
 
       // Load ALL reservations by clicking show more repeatedly
