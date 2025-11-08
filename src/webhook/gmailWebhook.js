@@ -292,7 +292,21 @@ class GmailWebhook {
         // Run availability check
         const result = await checker.checkAvailability();
         
+        // Data validation: Check if results look suspicious (too many available slots)
+        let isValidData = true;
         if (result && result.totalAvailableSlots > 0) {
+          // If more than 70% of total possible slots are available, data might be incomplete
+          const maxPossibleSlots = result.dates.length * 12; // 12 slots per day
+          const availabilityRatio = result.totalAvailableSlots / maxPossibleSlots;
+          
+          if (availabilityRatio > 0.7) {
+            console.log(`⚠️ Suspicious data detected: ${result.totalAvailableSlots}/${maxPossibleSlots} slots available (${Math.round(availabilityRatio * 100)}%)`);
+            console.log('⚠️ This may indicate incomplete data loading (pagination issues)');
+            isValidData = false;
+          }
+        }
+        
+        if (result && result.totalAvailableSlots > 0 && isValidData) {
           console.log(`✅ Found ${result.totalAvailableSlots} available slots`);
           
           // Send email notification only if email service is ready
@@ -320,6 +334,23 @@ class GmailWebhook {
             emailSent: emailResult.success,
             emailError: emailResult.error,
             user: user.email,
+            dateBreakdown: result.dates.map(date => ({
+              date: date.date,
+              available: date.available.length,
+              booked: date.booked.length,
+              total: date.totalSlots
+            }))
+          });
+        } else if (result && result.totalAvailableSlots > 0 && !isValidData) {
+          console.log('⚠️ Data quality check failed - skipping email to prevent sending incorrect information');
+          res.json({
+            status: 'completed',
+            totalAvailableSlots: result.totalAvailableSlots,
+            dates: result.dates.length,
+            emailSent: false,
+            user: user.email,
+            message: 'Data quality check failed - email skipped',
+            dataQualityIssue: true,
             dateBreakdown: result.dates.map(date => ({
               date: date.date,
               available: date.available.length,
