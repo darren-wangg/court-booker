@@ -794,7 +794,14 @@ class ReservationChecker {
           const clicked = await this.clickShowMoreReservations();
           if (clicked) {
             clickCount++;
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+            // Longer wait for Fly.io environment
+            const waitTime = process.env.FLY_APP_NAME ? 5000 : 2000;
+            await new Promise((resolve) => setTimeout(resolve, waitTime));
+            
+            // Additional wait for Fly.io after clicking "Show More"
+            if (process.env.FLY_APP_NAME) {
+              await this.page.waitForLoadState('networkidle', { timeout: 10000 });
+            }
           } else {
             hasMoreButton = false;
           }
@@ -1035,7 +1042,12 @@ class ReservationChecker {
       }
 
       // Use much longer timeout for dynamic content loading
-      const tableTimeout = process.env.GITHUB_ACTIONS ? 120000 : config.timeouts.waitForSelector;
+      let tableTimeout = config.timeouts.waitForSelector;
+      if (process.env.GITHUB_ACTIONS) {
+        tableTimeout = 120000;
+      } else if (process.env.FLY_APP_NAME) {
+        tableTimeout = 150000; // Even longer for Fly.io
+      }
       console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
       
       // Wait for any loading indicators to disappear and table to be visible
@@ -1044,20 +1056,39 @@ class ReservationChecker {
         await this.page.waitForLoadState('networkidle', { timeout: 45000 });
         console.log('🔍 Page reached network idle state');
         
-        // In CI environment, add extra waiting for dynamic content
-        if (process.env.GITHUB_ACTIONS) {
-          console.log('🔍 CI environment detected, waiting for dynamic content...');
-          await this.page.waitForTimeout(10000);
+        // In CI or Fly.io environment, add extra waiting for dynamic content
+        if (process.env.GITHUB_ACTIONS || process.env.FLY_APP_NAME) {
+          const envType = process.env.GITHUB_ACTIONS ? 'CI' : 'Fly.io';
+          console.log(`🔍 ${envType} environment detected, waiting for dynamic content...`);
+          
+          // Extra long wait for Fly.io which seems to have slower loading
+          const waitTime = process.env.FLY_APP_NAME ? 15000 : 10000;
+          await this.page.waitForTimeout(waitTime);
           
           // Try to trigger any lazy loading by scrolling
           await this.page.evaluate(() => {
             window.scrollTo(0, document.body.scrollHeight);
           });
-          await this.page.waitForTimeout(5000);
+          await this.page.waitForTimeout(7000);
+          
+          // Additional interaction for Fly.io
+          if (process.env.FLY_APP_NAME) {
+            console.log('🔍 Fly.io extra loading steps...');
+            // Click around to trigger any dynamic loading
+            await this.page.evaluate(() => {
+              const elements = document.querySelectorAll('*');
+              elements.forEach(el => {
+                if (el.onclick || el.addEventListener) {
+                  el.dispatchEvent(new Event('mouseover'));
+                }
+              });
+            });
+            await this.page.waitForTimeout(5000);
+          }
           
           // Wait for any AJAX requests to complete
-          await this.page.waitForLoadState('networkidle', { timeout: 20000 });
-          console.log('🔍 Extended CI loading complete');
+          await this.page.waitForLoadState('networkidle', { timeout: 30000 });
+          console.log(`🔍 Extended ${envType} loading complete`);
         }
         
         // Try multiple possible table selectors
