@@ -319,7 +319,13 @@ class GmailWebhook {
             dates: result.dates.length,
             emailSent: emailResult.success,
             emailError: emailResult.error,
-            user: user.email
+            user: user.email,
+            dateBreakdown: result.dates.map(date => ({
+              date: date.date,
+              available: date.available.length,
+              booked: date.booked.length,
+              total: date.totalSlots
+            }))
           });
         } else {
           console.log('⚠️ No available time slots found');
