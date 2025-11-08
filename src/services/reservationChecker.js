@@ -1035,14 +1035,30 @@ class ReservationChecker {
       }
 
       // Use much longer timeout for dynamic content loading
-      const tableTimeout = process.env.GITHUB_ACTIONS ? 90000 : config.timeouts.waitForSelector;
+      const tableTimeout = process.env.GITHUB_ACTIONS ? 120000 : config.timeouts.waitForSelector;
       console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
       
       // Wait for any loading indicators to disappear and table to be visible
       try {
         // First wait for the page to fully load
-        await this.page.waitForLoadState('networkidle', { timeout: 30000 });
+        await this.page.waitForLoadState('networkidle', { timeout: 45000 });
         console.log('🔍 Page reached network idle state');
+        
+        // In CI environment, add extra waiting for dynamic content
+        if (process.env.GITHUB_ACTIONS) {
+          console.log('🔍 CI environment detected, waiting for dynamic content...');
+          await this.page.waitForTimeout(10000);
+          
+          // Try to trigger any lazy loading by scrolling
+          await this.page.evaluate(() => {
+            window.scrollTo(0, document.body.scrollHeight);
+          });
+          await this.page.waitForTimeout(5000);
+          
+          // Wait for any AJAX requests to complete
+          await this.page.waitForLoadState('networkidle', { timeout: 20000 });
+          console.log('🔍 Extended CI loading complete');
+        }
         
         // Try multiple possible table selectors
         const possibleSelectors = [
@@ -1052,7 +1068,8 @@ class ReservationChecker {
           ".reservation-list table",
           "#upcoming-resv table",
           "table[class*='reservation']",
-          "table[class*='list']"
+          "table[class*='list']",
+          "table" // Last resort - any table
         ];
         
         let foundTable = false;
@@ -1062,7 +1079,7 @@ class ReservationChecker {
           try {
             console.log(`🔍 Trying selector: ${selector}`);
             await this.page.waitForSelector(selector, {
-              timeout: 5000,
+              timeout: selector === "table" ? 30000 : 5000,
               state: 'visible'
             });
             console.log(`✅ Found table with selector: ${selector}`);
@@ -1076,7 +1093,32 @@ class ReservationChecker {
         }
         
         if (!foundTable) {
-          throw new Error('No reservation table found with any known selector');
+          // Extra attempts for CI environment
+          if (process.env.GITHUB_ACTIONS) {
+            console.log('🔄 CI retry: Attempting page refresh and reload...');
+            await this.page.reload({ waitUntil: 'networkidle' });
+            await this.page.waitForTimeout(15000);
+            
+            // Try to find any table again
+            for (const selector of possibleSelectors) {
+              try {
+                await this.page.waitForSelector(selector, {
+                  timeout: 10000,
+                  state: 'visible'
+                });
+                console.log(`✅ Found table after refresh with selector: ${selector}`);
+                foundTable = true;
+                usedSelector = selector;
+                break;
+              } catch (retryError) {
+                continue;
+              }
+            }
+          }
+          
+          if (!foundTable) {
+            throw new Error('No reservation table found with any known selector');
+          }
         }
         
         console.log(`🔍 Reservation table is now visible using selector: ${usedSelector}`);
@@ -1144,6 +1186,35 @@ class ReservationChecker {
         
         console.log('🔍 Page structure analysis:', JSON.stringify(pageStructure, null, 2));
         
+        // In CI environment, save debugging artifacts
+        if (process.env.GITHUB_ACTIONS) {
+          try {
+            console.log('💾 Saving CI debugging artifacts...');
+            
+            // Save screenshot
+            await this.page.screenshot({ path: 'ci-error-screenshot.png', fullPage: true });
+            
+            // Save page HTML
+            const pageHTML = await this.page.content();
+            require('fs').writeFileSync('ci-error-page.html', pageHTML);
+            
+            // Save console logs
+            const consoleOutput = await this.page.evaluate(() => {
+              return {
+                url: window.location.href,
+                readyState: document.readyState,
+                scripts: Array.from(document.scripts).map(s => s.src || 'inline'),
+                errors: window.console?.errors || []
+              };
+            });
+            require('fs').writeFileSync('ci-error-debug.json', JSON.stringify(consoleOutput, null, 2));
+            
+            console.log('✅ CI debugging artifacts saved');
+          } catch (debugError) {
+            console.log('⚠️ Failed to save debugging artifacts:', debugError.message);
+          }
+        }
+        
         // Check for loading indicators
         const loadingElements = await this.page.$$('.loading, .spinner, [data-loading="true"]');
         if (loadingElements.length > 0) {
@@ -1151,7 +1222,18 @@ class ReservationChecker {
           await this.page.waitForTimeout(15000);
           
           // Try all selectors again after waiting
-          for (const selector of possibleSelectors) {
+          const retrySelectors = [
+            "table.reservation-list.secondary-list",
+            "table.reservation-list", 
+            "table.secondary-list",
+            ".reservation-list table",
+            "#upcoming-resv table",
+            "table[class*='reservation']",
+            "table[class*='list']",
+            "table"
+          ];
+          
+          for (const selector of retrySelectors) {
             try {
               await this.page.waitForSelector(selector, {
                 timeout: 10000,

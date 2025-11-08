@@ -103,11 +103,14 @@ jobs:
           DISPLAY: :99
         run: node src/scripts/check-now.js
 
-      - name: Upload logs (if check fails)
+      - name: Upload debugging artifacts (if check fails)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: error-logs
+          name: error-debug-artifacts
           path: |
             *.log
             logs/
+            ci-error-*.png
+            ci-error-*.html
+            ci-error-*.json
