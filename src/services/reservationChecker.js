@@ -800,7 +800,14 @@ class ReservationChecker {
             
             // Additional wait for Fly.io after clicking "Show More"
             if (process.env.FLY_APP_NAME) {
-              await this.page.waitForLoadState('networkidle', { timeout: 10000 });
+              try {
+                await this.page.waitForFunction(
+                  () => document.readyState === 'complete',
+                  { timeout: 10000 }
+                );
+              } catch (loadError) {
+                await this.page.waitForTimeout(2000);
+              }
             }
           } else {
             hasMoreButton = false;
@@ -1053,7 +1060,16 @@ class ReservationChecker {
       // Wait for any loading indicators to disappear and table to be visible
       try {
         // First wait for the page to fully load
-        await this.page.waitForLoadState('networkidle', { timeout: 45000 });
+        try {
+          // Use Puppeteer's network idle approach
+          await this.page.waitForFunction(
+            () => document.readyState === 'complete',
+            { timeout: 45000 }
+          );
+          await this.page.waitForTimeout(3000); // Additional wait for dynamic content
+        } catch (readyStateError) {
+          console.log('⚠️ ReadyState wait failed, continuing anyway');
+        }
         console.log('🔍 Page reached network idle state');
         
         // In CI or Fly.io environment, add extra waiting for dynamic content
@@ -1087,7 +1103,17 @@ class ReservationChecker {
           }
           
           // Wait for any AJAX requests to complete
-          await this.page.waitForLoadState('networkidle', { timeout: 30000 });
+          try {
+            await this.page.waitForFunction(
+              () => {
+                return window.jQuery ? window.jQuery.active === 0 : true;
+              },
+              { timeout: 30000 }
+            );
+          } catch (jqueryError) {
+            console.log('⚠️ jQuery wait failed, using timeout fallback');
+            await this.page.waitForTimeout(5000);
+          }
           console.log(`🔍 Extended ${envType} loading complete`);
         }
         
@@ -1127,7 +1153,8 @@ class ReservationChecker {
           // Extra attempts for CI environment
           if (process.env.GITHUB_ACTIONS) {
             console.log('🔄 CI retry: Attempting page refresh and reload...');
-            await this.page.reload({ waitUntil: 'networkidle' });
+            const currentUrl = this.page.url();
+            await this.page.goto(currentUrl, { waitUntil: 'networkidle2' });
             await this.page.waitForTimeout(15000);
             
             // Try to find any table again
