@@ -41,7 +41,7 @@ class ReservationChecker {
       
       console.log('🌐 Initializing Puppeteer browser...');
       
-      // Standard configuration for local development
+      // Enhanced configuration with CI-specific optimizations
       const launchOptions = {
         headless: true,
         defaultViewport: null,
@@ -54,10 +54,25 @@ class ReservationChecker {
           "--no-first-run",
           "--disable-background-timer-throttling",
           "--disable-backgrounding-occluded-windows",
-          "--disable-renderer-backgrounding"
+          "--disable-renderer-backgrounding",
+          // Additional CI-specific flags for better content loading
+          ...(process.env.GITHUB_ACTIONS ? [
+            "--disable-extensions-except",
+            "--disable-plugins",
+            "--disable-default-apps",
+            "--disable-sync",
+            "--disable-translate",
+            "--disable-web-security",
+            "--disable-features=TranslateUI",
+            "--disable-ipc-flooding-protection",
+            "--allow-running-insecure-content",
+            "--ignore-certificate-errors",
+            "--ignore-ssl-errors",
+            "--ignore-certificate-errors-spki-list"
+          ] : [])
         ],
         timeout: NAVIGATION_TIMEOUT,
-        protocolTimeout: 120000,
+        protocolTimeout: process.env.GITHUB_ACTIONS ? 240000 : 120000,
         handleSIGINT: false,
         handleSIGTERM: false,
         handleSIGHUP: false
@@ -1075,46 +1090,120 @@ class ReservationChecker {
         // In CI or Fly.io environment, add extra waiting for dynamic content
         if (process.env.GITHUB_ACTIONS || process.env.FLY_APP_NAME) {
           const envType = process.env.GITHUB_ACTIONS ? 'CI' : 'Fly.io';
-          console.log(`🔍 ${envType} environment detected, waiting for dynamic content...`);
+          console.log(`🔍 ${envType} environment detected, applying aggressive loading strategy...`);
           
-          // Extra long wait for Fly.io which seems to have slower loading
-          const waitTime = process.env.FLY_APP_NAME ? 15000 : 10000;
-          await this.page.waitForTimeout(waitTime);
+          // Phase 1: Extended initial wait with longer timeouts for CI
+          const baseWaitTime = process.env.FLY_APP_NAME ? 20000 : (process.env.GITHUB_ACTIONS ? 25000 : 15000);
+          console.log(`⏳ Phase 1: Initial wait (${baseWaitTime}ms)`);
+          await this.page.waitForTimeout(baseWaitTime);
           
-          // Try to trigger any lazy loading by scrolling
-          await this.page.evaluate(() => {
-            window.scrollTo(0, document.body.scrollHeight);
-          });
-          await this.page.waitForTimeout(7000);
-          
-          // Additional interaction for Fly.io
-          if (process.env.FLY_APP_NAME) {
-            console.log('🔍 Fly.io extra loading steps...');
-            // Click around to trigger any dynamic loading
-            await this.page.evaluate(() => {
-              const elements = document.querySelectorAll('*');
-              elements.forEach(el => {
-                if (el.onclick || el.addEventListener) {
-                  el.dispatchEvent(new Event('mouseover'));
+          // Phase 2: Aggressive content triggering with multiple attempts
+          for (let attempt = 1; attempt <= 4; attempt++) {
+            console.log(`🔄 Phase 2: Content loading attempt ${attempt}/4`);
+            
+            try {
+              await this.page.evaluate(() => {
+                // Multiple scroll patterns to trigger lazy loading
+                window.scrollTo(0, 0);
+                window.scrollTo(0, document.body.scrollHeight);
+                window.scrollTo(0, document.body.scrollHeight / 2);
+                window.scrollTo(0, document.body.scrollHeight);
+                
+                // Simulate user interactions that might trigger content loading
+                document.body.click();
+                document.body.focus();
+                
+                // Dispatch various events that might trigger dynamic loading
+                ['DOMContentLoaded', 'load', 'resize', 'scroll'].forEach(eventType => {
+                  const event = new Event(eventType, { bubbles: true, cancelable: true });
+                  document.dispatchEvent(event);
+                  window.dispatchEvent(event);
+                });
+                
+                // Force jQuery ready if available
+                if (typeof window.jQuery !== 'undefined') {
+                  window.jQuery(document).ready();
+                  window.jQuery(document).trigger('ready');
                 }
+                
+                // Trigger mouseover on all interactive elements
+                const interactiveElements = document.querySelectorAll('a, button, [onclick], [data-toggle], .clickable');
+                interactiveElements.forEach(el => {
+                  el.dispatchEvent(new Event('mouseover', { bubbles: true }));
+                  el.dispatchEvent(new Event('mouseenter', { bubbles: true }));
+                });
               });
-            });
-            await this.page.waitForTimeout(5000);
+              
+              await this.page.waitForTimeout(5000);
+              
+              // Quick check for table appearance
+              const tableCheck = await this.page.$$('table');
+              if (tableCheck.length > 0) {
+                console.log(`✅ Tables detected after attempt ${attempt}`);
+                break;
+              }
+              
+            } catch (triggerError) {
+              console.log(`⚠️ Content trigger attempt ${attempt} failed:`, triggerError.message);
+            }
           }
           
-          // Wait for any AJAX requests to complete
+          // Phase 3: Environment-specific additional interactions
+          if (process.env.FLY_APP_NAME) {
+            console.log('🔍 Fly.io specific optimizations...');
+            await this.page.evaluate(() => {
+              // Force trigger all possible event handlers
+              const allElements = document.querySelectorAll('*');
+              allElements.forEach(el => {
+                ['focus', 'blur', 'click', 'mouseover', 'mouseout'].forEach(eventType => {
+                  try {
+                    el.dispatchEvent(new Event(eventType, { bubbles: true }));
+                  } catch (e) { /* ignore */ }
+                });
+              });
+            });
+            await this.page.waitForTimeout(8000);
+          }
+          
+          // Phase 4: Extended wait for AJAX and script completion
+          console.log(`⏳ Phase 4: Waiting for script completion`);
           try {
             await this.page.waitForFunction(
               () => {
-                return window.jQuery ? window.jQuery.active === 0 : true;
+                const hasJQuery = typeof window.jQuery !== 'undefined';
+                const domComplete = document.readyState === 'complete';
+                const noActiveRequests = !window.jQuery || window.jQuery.active === 0;
+                const hasImages = document.images.length === 0 || 
+                  Array.from(document.images).every(img => img.complete);
+                
+                return domComplete && (!hasJQuery || noActiveRequests) && hasImages;
               },
-              { timeout: 30000 }
+              { 
+                timeout: process.env.GITHUB_ACTIONS ? 60000 : 45000,
+                polling: 3000
+              }
             );
-          } catch (jqueryError) {
-            console.log('⚠️ jQuery wait failed, using timeout fallback');
-            await this.page.waitForTimeout(5000);
+            console.log(`✅ ${envType} page fully loaded and scripts complete`);
+          } catch (completionError) {
+            console.log('⚠️ Script completion wait failed, continuing with timeout fallback');
+            await this.page.waitForTimeout(15000);
           }
-          console.log(`🔍 Extended ${envType} loading complete`);
+          
+          // Phase 5: Final forced refresh for CI if still no content
+          if (process.env.GITHUB_ACTIONS) {
+            const finalCheck = await this.page.$$('table');
+            if (finalCheck.length === 0) {
+              console.log(`🔄 CI final attempt: Forced page refresh`);
+              const currentUrl = this.page.url();
+              await this.page.goto(currentUrl, { 
+                waitUntil: 'networkidle2',
+                timeout: 180000 
+              });
+              await this.page.waitForTimeout(30000);
+            }
+          }
+          
+          console.log(`🔍 ${envType} aggressive loading strategy complete`);
         }
         
         // Try multiple possible table selectors
