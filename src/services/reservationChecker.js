@@ -169,9 +169,9 @@ class ReservationChecker {
 
   async initializeFlyioChrome() {
     try {
-      console.log('✈️ Initializing Fly.io-optimized Chrome...');
+      console.log('✈️ Initializing Fly.io-optimized Chrome with enhanced resource management...');
       
-      // Optimized Chrome configuration for Fly.io environment
+      // Optimized Chrome configuration for Fly.io environment with context recovery
       const flyioOptions = {
         headless: 'shell', // Use shell headless mode (most minimal)
         args: [
@@ -998,6 +998,49 @@ class ReservationChecker {
     return slots;
   }
 
+  /**
+   * Robust browser operation wrapper with context recovery for Fly.io
+   */
+  async robustBrowserOperation(operation, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Browser operation attempt ${attempt}/${maxRetries}`);
+        return await operation();
+      } catch (error) {
+        if (error.message.includes('Target page, context or browser has been closed') || 
+            error.message.includes('Protocol error')) {
+          console.log(`⚠️ Browser context lost on attempt ${attempt}: ${error.message}`);
+          
+          if (attempt < maxRetries) {
+            console.log(`🔄 Recovering browser context for attempt ${attempt + 1}...`);
+            try {
+              // Close current browser if it exists
+              if (this.browser) {
+                await this.browser.close().catch(() => {});
+              }
+              
+              // Re-initialize with a short delay
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              await this.initialize();
+              console.log('✅ Browser context recovered');
+            } catch (recoveryError) {
+              console.log(`⚠️ Browser recovery failed: ${recoveryError.message}`);
+              if (attempt === maxRetries) {
+                throw error;
+              }
+            }
+          } else {
+            console.log('❌ Max retries reached, failing operation');
+            throw error;
+          }
+        } else {
+          // Non-browser-context error, don't retry
+          throw error;
+        }
+      }
+    }
+  }
+
   async checkAvailability() {
     try {
       await this.initialize();
@@ -1034,7 +1077,12 @@ class ReservationChecker {
         }
       }
       
-      await this.login();
+      // Use robust browser operation for login in Fly.io environment
+      if (process.env.FLY_APP_NAME) {
+        await this.robustBrowserOperation(() => this.login());
+      } else {
+        await this.login();
+      }
 
       // Add debug info for CI
       if (process.env.GITHUB_ACTIONS) {
@@ -1398,7 +1446,12 @@ class ReservationChecker {
       }
 
       // Load ALL reservations by clicking show more repeatedly
-      const allReservations = await this.loadAllReservations();
+      let allReservations;
+      if (process.env.FLY_APP_NAME) {
+        allReservations = await this.robustBrowserOperation(() => this.loadAllReservations());
+      } else {
+        allReservations = await this.loadAllReservations();
+      }
 
       // Get the next 7 days (excluding today)
       const next7Days = this.getNext7Days();
