@@ -10,6 +10,28 @@ class PlaywrightBrowser {
     this.page = null;
   }
 
+  async connect(browserWSEndpoint) {
+    console.log('🌐 Connecting to remote browser via WebSocket...');
+    this.browser = await chromium.connect(browserWSEndpoint);
+    
+    return {
+      newPage: async () => {
+        this.page = await this.browser.newPage();
+        
+        // Set viewport for consistency
+        await this.page.setViewportSize({ width: 1280, height: 720 });
+        
+        // Return Puppeteer-compatible page object
+        return this.createPuppeteerCompatiblePage(this.page);
+      },
+      close: async () => {
+        if (this.browser) {
+          await this.browser.close();
+        }
+      }
+    };
+  }
+
   async launch(options = {}) {
     // Convert Puppeteer options to Playwright options
     const playwrightOptions = {

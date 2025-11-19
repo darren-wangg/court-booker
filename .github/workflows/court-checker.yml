@@ -59,10 +59,10 @@ jobs:
         run: |
           # Get current UTC hour (GitHub Actions run in UTC)
           current_hour_utc=$(date -u +%H)
-          # Check if current UTC hour matches 2 PM or 10 PM PST
-          # 2 PM PST = 22:00 UTC (winter) or 21:00 UTC (summer)
-          # 10 PM PST = 06:00 UTC (winter) or 05:00 UTC (summer)
-          if [ "$current_hour_utc" = "21" ] || [ "$current_hour_utc" = "22" ] || [ "$current_hour_utc" = "05" ] || [ "$current_hour_utc" = "06" ]; then
+          # Check if current UTC hour matches 12 PM or 8 PM PST
+          # 12 PM PST = 20:00 UTC (winter) or 19:00 UTC (summer)
+          # 8 PM PST = 04:00 UTC (winter) or 03:00 UTC (summer)
+          if [ "$current_hour_utc" = "19" ] || [ "$current_hour_utc" = "20" ] || [ "$current_hour_utc" = "03" ] || [ "$current_hour_utc" = "04" ]; then
             echo "should_send=true" >> $GITHUB_OUTPUT
             echo "📧 Email will be sent (UTC hour: $current_hour_utc)"
           else
@@ -81,6 +81,18 @@ jobs:
           USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
           USER1_PASSWORD: ${{ secrets.USER1_PASSWORD }}
           USER1_NOTIFICATION_EMAIL: ${{ secrets.USER1_NOTIFICATION_EMAIL }}
+
+          USER2_EMAIL: ${{ secrets.USER2_EMAIL }}
+          USER2_PASSWORD: ${{ secrets.USER2_PASSWORD }}
+          USER2_NOTIFICATION_EMAIL: ${{ secrets.USER2_NOTIFICATION_EMAIL }}
+
+          USER3_EMAIL: ${{ secrets.USER3_EMAIL }}
+          USER3_PASSWORD: ${{ secrets.USER3_PASSWORD }}
+          USER3_NOTIFICATION_EMAIL: ${{ secrets.USER3_NOTIFICATION_EMAIL }}
+
+          USER4_EMAIL: ${{ secrets.USER4_EMAIL }}
+          USER4_PASSWORD: ${{ secrets.USER4_PASSWORD }}
+          USER4_NOTIFICATION_EMAIL: ${{ secrets.USER4_NOTIFICATION_EMAIL }}
 
           # Gmail SMTP configuration
           GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}

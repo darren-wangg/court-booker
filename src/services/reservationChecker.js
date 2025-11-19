@@ -27,6 +27,13 @@ class ReservationChecker {
     try {
       console.log('🌐 Initializing browser service...');
       
+      // Check for Browserless.io cloud browser token
+      const browserlessToken = process.env.BROWSERLESS_TOKEN;
+      if (browserlessToken) {
+        console.log('☁️ Browserless.io token detected - using cloud browser service');
+        return this.initializeBrowserlessChrome(browserlessToken);
+      }
+      
       // Detect Fly.io environment
       const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
       
@@ -163,6 +170,45 @@ class ReservationChecker {
       this.page.setDefaultTimeout(pageDefaultTimeout);
     } catch (error) {
       console.error("Failed to initialize browser: ", error);
+      throw error;
+    }
+  }
+
+  async initializeBrowserlessChrome(token) {
+    try {
+      console.log('☁️ Connecting to Browserless.io cloud browser service...');
+      
+      // Connect to cloud browser via WebSocket
+      const browserWSEndpoint = `wss://chrome.browserless.io?token=${token}`;
+      
+      const playwrightBrowser = new PlaywrightBrowser();
+      this.browser = await playwrightBrowser.connect(browserWSEndpoint);
+      
+      console.log('✅ Connected to Browserless.io cloud browser');
+      
+      // Create new page
+      this.page = await this.browser.newPage();
+      
+      // Set realistic user agent and headers
+      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      await this.page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
+      });
+      
+      // Set viewport
+      await this.page.setViewport({ width: 1366, height: 768 });
+      
+      // Set generous timeouts for cloud browser
+      this.page.setDefaultNavigationTimeout(90000); // 90 seconds
+      this.page.setDefaultTimeout(60000); // 60 seconds
+      
+      console.log('✅ Browserless.io browser configured and ready');
+      
+    } catch (error) {
+      console.error('❌ Failed to connect to Browserless.io:', error.message);
+      console.error('💡 Check your BROWSERLESS_TOKEN environment variable');
       throw error;
     }
   }
