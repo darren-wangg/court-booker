@@ -178,8 +178,8 @@ class ReservationChecker {
     try {
       console.log('☁️ Connecting to Browserless.io cloud browser service...');
       
-      // Connect to cloud browser via WebSocket
-      const browserWSEndpoint = `wss://chrome.browserless.io?token=${token}`;
+      // Connect to cloud browser via WebSocket (updated endpoint)
+      const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
       
       const playwrightBrowser = new PlaywrightBrowser();
       this.browser = await playwrightBrowser.connect(browserWSEndpoint);
