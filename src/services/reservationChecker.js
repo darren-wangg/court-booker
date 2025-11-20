@@ -177,12 +177,22 @@ class ReservationChecker {
   async initializeBrowserlessChrome(token) {
     try {
       console.log('☁️ Connecting to Browserless.io cloud browser service...');
+      console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
       
       // Connect to cloud browser via WebSocket (updated endpoint)
       const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
+      console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
       
       const playwrightBrowser = new PlaywrightBrowser();
-      this.browser = await playwrightBrowser.connect(browserWSEndpoint);
+      
+      // Add timeout to the connection attempt
+      const connectionPromise = playwrightBrowser.connect(browserWSEndpoint);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), 30000);
+      });
+      
+      console.log('⏳ Attempting WebSocket connection with 30s timeout...');
+      this.browser = await Promise.race([connectionPromise, timeoutPromise]);
       
       console.log('✅ Connected to Browserless.io cloud browser');
       
@@ -208,7 +218,11 @@ class ReservationChecker {
       
     } catch (error) {
       console.error('❌ Failed to connect to Browserless.io:', error.message);
-      console.error('💡 Check your BROWSERLESS_TOKEN environment variable');
+      console.error('💡 Possible issues:');
+      console.error('   - Invalid or expired token');
+      console.error('   - Network connectivity from Fly.io to Browserless.io');
+      console.error('   - Rate limit exceeded (free tier)');
+      console.error('   - Browserless.io service downtime');
       throw error;
     }
   }
