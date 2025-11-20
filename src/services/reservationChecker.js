@@ -223,7 +223,10 @@ class ReservationChecker {
       console.error('   - Network connectivity from Fly.io to Browserless.io');
       console.error('   - Rate limit exceeded (free tier)');
       console.error('   - Browserless.io service downtime');
-      throw error;
+      
+      console.log('🔄 Falling back to local Fly.io browser...');
+      // Fall back to Fly.io browser
+      return this.initializeFlyioChrome();
     }
   }
 
