@@ -1,6 +1,6 @@
 const puppeteer = require("puppeteer");
 const config = require('../config');
-const FlyioChrome = require('../utils/flyioChrome');
+const CloudChrome = require('../utils/cloudChrome');
 
 class BookingService {
   constructor(userId = null) {
@@ -13,16 +13,16 @@ class BookingService {
     try {
       console.log('🌐 Initializing booking service...');
       
-      // Detect Fly.io environment
-      const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
+      // Detect production cloud environment
+      const isProduction = process.env.NODE_ENV === 'production';
       
       // Initialize resource constraint flag (legacy name for compatibility)
       this.resourceConstraint = false;
       
-      // Fly.io-optimized Chrome configuration for booking
-      if (isFlyio) {
-        console.log('✈️ Fly.io environment detected - using optimized Chrome for booking');
-        return this.initializeFlyioBookingChrome();
+      // Production cloud-optimized Chrome configuration for booking
+      if (isProduction) {
+        console.log('🌐 Production cloud environment detected - using optimized Chrome for booking');
+        return this.initializeCloudBookingChrome();
       }
       
       // Standard Chrome initialization for local development
@@ -63,58 +63,30 @@ class BookingService {
     }
   }
 
-  async initializeFlyioBookingChrome() {
+  async initializeCloudBookingChrome() {
     try {
-      console.log('✈️ Initializing Fly.io booking Chrome...');
+      console.log('🌐 Initializing cloud booking Chrome...');
       
-      // Minimal configuration focused on form interactions
-      const flyioOptions = {
-        headless: 'shell',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-          '--single-process',
-          '--no-zygote',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--memory-pressure-off',
-          '--max_old_space_size=256',
-          '--disable-extensions',
-          '--disable-sync',
-          '--disable-translate',
-          '--mute-audio'
-        ],
-        timeout: 30000,
-        protocolTimeout: 45000,
-        pipe: true,
-        defaultViewport: { width: 800, height: 600 },
-        handleSIGINT: false,
-        handleSIGTERM: false,
-        handleSIGHUP: false
-      };
-
+      // Use CloudChrome for optimized cloud environment settings
       try {
-        this.browser = await puppeteer.launch(flyioOptions);
-        console.log('✅ Fly.io booking Chrome launched');
+        this.browser = await CloudChrome.launchWithRetries(3);
+        console.log('✅ Cloud booking Chrome launched');
         
         this.page = await this.browser.newPage();
         this.page.setDefaultNavigationTimeout(30000);
         this.page.setDefaultTimeout(15000);
         
-        console.log('✅ Fly.io booking service initialized');
+        console.log('✅ Cloud booking service initialized');
         
       } catch (error) {
-        console.error('❌ Fly.io booking Chrome failed:', error.message);
+        console.error('❌ Cloud booking Chrome failed:', error.message);
         this.resourceConstraint = true;
         this.browser = null;
         this.page = null;
       }
       
     } catch (error) {
-      console.error('❌ Fly.io booking initialization failed:', error.message);
+      console.error('❌ Cloud booking initialization failed:', error.message);
     }
   }
 

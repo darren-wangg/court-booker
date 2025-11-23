@@ -4,7 +4,7 @@ const cheerio = require("cheerio");
 const EmailService = require("./emailService");
 const config = require("../config");
 const { generateEmailHTML } = require("../email-templates/availabilities");
-const FlyioChrome = require("../utils/flyioChrome");
+const CloudChrome = require("../utils/cloudChrome");
 
 // Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
@@ -34,16 +34,16 @@ class ReservationChecker {
         return this.initializeBrowserlessChrome(browserlessToken);
       }
       
-      // Detect Fly.io environment
-      const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
+      // Detect cloud environment
+      const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.CLOUD_ENV;
       
-      // Initialize resource constraint flag (legacy name for compatibility)
+      // Initialize resource constraint flag
       this.resourceConstraint = false;
       
-      // Fly.io-optimized Chrome configuration
-      if (isFlyio) {
-        console.log('✈️ Fly.io environment detected - using optimized Chrome configuration');
-        return this.initializeFlyioChrome();
+      // Cloud-optimized Chrome configuration
+      if (isCloudEnv) {
+        console.log('🌐 Cloud environment detected - using optimized Chrome configuration');
+        return this.initializeCloudChrome();
       }
       
       console.log('🌐 Initializing Puppeteer browser...');
@@ -220,22 +220,22 @@ class ReservationChecker {
       console.error('❌ Failed to connect to Browserless.io:', error.message);
       console.error('💡 Possible issues:');
       console.error('   - Invalid or expired token');
-      console.error('   - Network connectivity from Fly.io to Browserless.io');
+      console.error('   - Network connectivity from cloud server to Browserless.io');
       console.error('   - Rate limit exceeded (free tier)');
       console.error('   - Browserless.io service downtime');
       
-      console.log('🔄 Falling back to local Fly.io browser...');
-      // Fall back to Fly.io browser
-      return this.initializeFlyioChrome();
+      console.log('🔄 Falling back to local cloud browser...');
+      // Fall back to cloud browser
+      return this.initializeCloudChrome();
     }
   }
 
-  async initializeFlyioChrome() {
+  async initializeCloudChrome() {
     try {
-      console.log('✈️ Initializing Fly.io-optimized Chrome with enhanced resource management...');
+      console.log('🌐 Initializing cloud-optimized Chrome with enhanced resource management...');
       
-      // Optimized Chrome configuration for Fly.io environment with context recovery
-      const flyioOptions = {
+      // Optimized Chrome configuration for cloud environment with context recovery
+      const cloudOptions = {
         headless: 'shell', // Use shell headless mode (most minimal)
         args: [
           // Core sandbox and security flags
@@ -337,35 +337,35 @@ class ReservationChecker {
       // Try ultra-minimal approach first
       for (let attempt = 1; attempt <= 5; attempt++) {
         try {
-          console.log(`✈️ Fly.io Chrome launch attempt ${attempt}/5`);
+          console.log(`🌐 Cloud Chrome launch attempt ${attempt}/5`);
           
           if (attempt > 1) {
             // Progressive wait with cleanup
             await this.forceProcessCleanup();
             const delay = attempt * 2000; // 2s, 4s, 6s, 8s
-            console.log(`⏳ Waiting ${delay}ms for Fly.io resources...`);
+            console.log(`⏳ Waiting ${delay}ms for cloud resources...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
 
           const playwrightBrowser = new PlaywrightBrowser();
-          browser = await playwrightBrowser.launch(flyioOptions);
-          console.log('✅ Fly.io Chrome launched successfully');
+          browser = await playwrightBrowser.launch(cloudOptions);
+          console.log('✅ Cloud Chrome launched successfully');
           break;
           
         } catch (error) {
           lastError = error;
-          console.log(`⚠️ Fly.io Chrome attempt ${attempt} failed: ${error.message}`);
+          console.log(`⚠️ Cloud Chrome attempt ${attempt} failed: ${error.message}`);
           
           // Try progressively more minimal configs
           if (attempt === 2) {
             // Remove JavaScript disable if it's causing issues
-            flyioOptions.args = flyioOptions.args.filter(arg => arg !== '--disable-javascript');
+            cloudOptions.args = cloudOptions.args.filter(arg => arg !== '--disable-javascript');
             console.log('🔧 Re-enabling JavaScript for form interactions');
           }
           
           if (attempt === 3) {
             // Try with absolute minimal args
-            flyioOptions.args = [
+            cloudOptions.args = [
               '--no-sandbox',
               '--disable-setuid-sandbox',
               '--disable-dev-shm-usage',
@@ -377,14 +377,14 @@ class ReservationChecker {
           
           if (attempt === 4) {
             // Try bundled Chrome
-            delete flyioOptions.executablePath;
+            delete cloudOptions.executablePath;
             console.log('🔧 Forcing bundled Chrome');
           }
         }
       }
 
       if (!browser) {
-        console.log('❌ All Fly.io Chrome attempts failed, enabling fallback mode');
+        console.log('❌ All cloud Chrome attempts failed, enabling fallback mode');
         this.resourceConstraint = true;
         return;
       }
@@ -399,10 +399,10 @@ class ReservationChecker {
       // Set minimal user agent
       await this.page.setUserAgent('Mozilla/5.0 (Linux; Ubuntu)');
       
-      console.log('✅ Fly.io Chrome initialization completed');
+      console.log('✅ Cloud Chrome initialization completed');
       
     } catch (error) {
-      console.error('❌ Fly.io Chrome initialization failed:', error.message);
+      console.error('❌ Cloud Chrome initialization failed:', error.message);
     }
   }
 
@@ -416,7 +416,7 @@ class ReservationChecker {
       // Small delay to let system recover
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Try to kill any hanging Chrome processes (Fly.io-safe)
+      // Try to kill any hanging Chrome processes (cloud-safe)
       try {
         const { execSync } = require('child_process');
         execSync('pkill -f "chrome" || true', { stdio: 'ignore', timeout: 2000 });
@@ -428,10 +428,10 @@ class ReservationChecker {
     }
   }
 
-  // Fly.io fallback for when Chrome is unavailable
+  // Cloud fallback for when Chrome is unavailable
   async checkAvailabilityFallback() {
     try {
-      console.log('✈️ Fly.io fallback mode - monitoring email requests only');
+      console.log('🌐 Cloud fallback mode - monitoring email requests only');
       
       // Generate realistic fallback data to keep the system functional
       const next7Days = this.getNext7Days();
@@ -451,15 +451,15 @@ class ReservationChecker {
         totalAvailableSlots: 0, // Unknown in fallback mode
         checkedAt: new Date().toISOString(),
         fallbackMode: true,
-        flyioCompatibilityMode: true,
-        message: 'Fly.io fallback mode active - email booking functionality preserved'
+        cloudCompatibilityMode: true,
+        message: 'Cloud fallback mode active - email booking functionality preserved'
       };
       
     } catch (error) {
-      console.error('❌ Fly.io fallback failed:', error.message);
+      console.error('❌ Cloud fallback failed:', error.message);
       return {
         success: false,
-        error: 'Fly.io fallback mode failed',
+        error: 'Cloud fallback mode failed',
         timestamp: new Date().toISOString()
       };
     }
@@ -872,12 +872,12 @@ class ReservationChecker {
           const clicked = await this.clickShowMoreReservations();
           if (clicked) {
             clickCount++;
-            // Longer wait for Fly.io environment
-            const waitTime = process.env.FLY_APP_NAME ? 5000 : 2000;
+            // Longer wait for production environment
+            const waitTime = process.env.NODE_ENV === 'production' ? 5000 : 2000;
             await new Promise((resolve) => setTimeout(resolve, waitTime));
             
-            // Additional wait for Fly.io after clicking "Show More"
-            if (process.env.FLY_APP_NAME) {
+            // Additional wait for production environment after clicking "Show More"
+            if (process.env.NODE_ENV === 'production') {
               try {
                 await this.page.waitForFunction(
                   () => document.readyState === 'complete',
@@ -1062,7 +1062,7 @@ class ReservationChecker {
   }
 
   /**
-   * Robust browser operation wrapper with context recovery for Fly.io
+   * Robust browser operation wrapper with context recovery for cloud environments
    */
   async robustBrowserOperation(operation, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -1126,7 +1126,7 @@ class ReservationChecker {
             emailSent: true,
             message: 'Fallback mode - email monitoring active',
             fallbackMode: true,
-            flyioCompatibilityMode: true,
+            cloudCompatibilityMode: true,
             timestamp: new Date().toISOString()
           };
         } else {
@@ -1140,8 +1140,8 @@ class ReservationChecker {
         }
       }
       
-      // Use robust browser operation for login in Fly.io environment
-      if (process.env.FLY_APP_NAME) {
+      // Use robust browser operation for login in production environment
+      if (process.env.NODE_ENV === 'production') {
         await this.robustBrowserOperation(() => this.login());
       } else {
         await this.login();
@@ -1178,8 +1178,8 @@ class ReservationChecker {
       let tableTimeout = config.timeouts.waitForSelector;
       if (process.env.GITHUB_ACTIONS) {
         tableTimeout = 120000;
-      } else if (process.env.FLY_APP_NAME) {
-        tableTimeout = 150000; // Even longer for Fly.io
+      } else if (process.env.NODE_ENV === 'production') {
+        tableTimeout = 150000; // Even longer for production cloud environment
       }
       console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
       
@@ -1198,13 +1198,13 @@ class ReservationChecker {
         }
         console.log('🔍 Page reached network idle state');
         
-        // In CI or Fly.io environment, add extra waiting for dynamic content
-        if (process.env.GITHUB_ACTIONS || process.env.FLY_APP_NAME) {
-          const envType = process.env.GITHUB_ACTIONS ? 'CI' : 'Fly.io';
+        // In CI or production environment, add extra waiting for dynamic content
+        if (process.env.GITHUB_ACTIONS || process.env.NODE_ENV === 'production') {
+          const envType = process.env.GITHUB_ACTIONS ? 'CI' : 'Production';
           console.log(`🔍 ${envType} environment detected, applying aggressive loading strategy...`);
           
           // Phase 1: Extended initial wait with longer timeouts for CI
-          const baseWaitTime = process.env.FLY_APP_NAME ? 20000 : (process.env.GITHUB_ACTIONS ? 25000 : 15000);
+          const baseWaitTime = process.env.NODE_ENV === 'production' ? 20000 : (process.env.GITHUB_ACTIONS ? 25000 : 15000);
           console.log(`⏳ Phase 1: Initial wait (${baseWaitTime}ms)`);
           await this.page.waitForTimeout(baseWaitTime);
           
@@ -1260,8 +1260,8 @@ class ReservationChecker {
           }
           
           // Phase 3: Environment-specific additional interactions
-          if (process.env.FLY_APP_NAME) {
-            console.log('🔍 Fly.io specific optimizations...');
+          if (process.env.NODE_ENV === 'production') {
+            console.log('🔍 Production environment specific optimizations...');
             await this.page.evaluate(() => {
               // Force trigger all possible event handlers
               const allElements = document.querySelectorAll('*');
@@ -1510,7 +1510,7 @@ class ReservationChecker {
 
       // Load ALL reservations by clicking show more repeatedly
       let allReservations;
-      if (process.env.FLY_APP_NAME) {
+      if (process.env.NODE_ENV === 'production') {
         allReservations = await this.robustBrowserOperation(() => this.loadAllReservations());
       } else {
         allReservations = await this.loadAllReservations();
@@ -1736,12 +1736,12 @@ class ReservationChecker {
         this.browser = null;
       }
       
-      // Fly.io-specific aggressive cleanup
-      const isFlyio = process.env.FLY_APP_NAME || process.env.FLY_REGION || process.env.FLY_ALLOC_ID;
+      // Production cloud-specific cleanup
+      const isProduction = process.env.NODE_ENV === 'production';
       
-      if (isFlyio) {
+      if (isProduction) {
         await this.forceProcessCleanup();
-        console.log('✈️ Fly.io cleanup completed');
+        console.log('🌐 Cloud cleanup completed');
       }
       
     } catch (error) {

@@ -44,7 +44,7 @@ class GmailWebhook {
       res.status(200).json(healthData);
     });
     
-    // Root endpoint for Fly.io
+    // Root endpoint
     this.app.get('/', (req, res) => {
       res.status(200).json({
         message: 'Court Booker Gmail Webhook Server',
@@ -214,7 +214,7 @@ class GmailWebhook {
               const result = await emailService.sendEmail({
                 to: testEmail,
                 subject: '🧪 SMTP Test Email',
-                html: '<h1>SMTP Test</h1><p>This is a test email to verify SMTP connectivity from Fly.io.</p><p>Timestamp: ' + new Date().toISOString() + '</p>'
+                html: '<h1>SMTP Test</h1><p>This is a test email to verify SMTP connectivity from the server.</p><p>Timestamp: ' + new Date().toISOString() + '</p>'
               });
               
               res.json({
@@ -493,11 +493,10 @@ class GmailWebhook {
         }
       }, 1000);
       
-      // Fly.io-specific health monitoring
-      this.flyioHealthInterval = setInterval(() => {
-        console.log('💓 Fly.io health check - process is active');
-        // This helps Fly.io detect that the process is healthy
-      }, 15000); // Every 15 seconds
+      // Server health monitoring
+      this.healthInterval = setInterval(() => {
+        console.log('💓 Server health check - process is active');
+      }, 60000); // Every minute
       
     } catch (error) {
       console.error('❌ Failed to start webhook server:', error);
@@ -512,8 +511,8 @@ class GmailWebhook {
     if (this.keepAliveInterval) {
       clearInterval(this.keepAliveInterval);
     }
-    if (this.flyioHealthInterval) {
-      clearInterval(this.flyioHealthInterval);
+    if (this.healthInterval) {
+      clearInterval(this.healthInterval);
     }
     
     // Close the server properly

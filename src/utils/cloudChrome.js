@@ -1,22 +1,22 @@
 const puppeteer = require("puppeteer");
 
 /**
- * Fly.io-optimized Chrome launch configuration
- * Handles Protocol errors and resource constraints
+ * Cloud-optimized Chrome launch configuration
+ * Handles Protocol errors and resource constraints in cloud environments
  */
-class FlyioChrome {
-  static getExtremeFlyioLaunchOptions() {
+class CloudChrome {
+  static getOptimizedLaunchOptions() {
     return {
       headless: true,
       defaultViewport: null,
-      executablePath: undefined, // Always use bundled Chrome on Fly.io
+      executablePath: undefined, // Use bundled Chrome
       args: [
-        // Core Fly.io requirements
+        // Core cloud environment requirements
         "--no-sandbox",
         "--disable-setuid-sandbox", 
         "--disable-dev-shm-usage",
         
-        // Extreme resource limiting
+        // Resource optimizations
         "--single-process",
         "--disable-gpu",
         "--disable-gpu-sandbox",
@@ -29,10 +29,9 @@ class FlyioChrome {
         
         // Memory optimizations
         "--memory-pressure-off",
-        "--max_old_space_size=64", // Extremely low memory limit
-        "--aggressive-memory-allocation",
+        "--max_old_space_size=128", // Reasonable memory limit
         "--disable-dev-shm-usage",
-        "--shm-size=128m",
+        "--shm-size=256m",
         
         // Disable unnecessary features
         "--disable-extensions",
@@ -42,9 +41,7 @@ class FlyioChrome {
         "--disable-web-security",
         "--disable-features=VizDisplayCompositor",
         "--disable-features=AudioServiceOutOfProcess",
-        "--disable-features=RendererCodeIntegrity",
         "--disable-features=TranslateUI",
-        "--disable-features=BlinkGenPropertyTrees",
         "--disable-component-extensions-with-background-pages",
         "--disable-default-apps",
         "--disable-sync",
@@ -68,9 +65,6 @@ class FlyioChrome {
         "--disable-gpu-memory-buffer-video-frames",
         "--disable-gpu-memory-buffer-compositor-resources",
         "--disable-zero-copy",
-        "--disable-vulkan",
-        "--disable-metal",
-        "--disable-skia-runtime-opts",
         "--use-gl=swiftshader-webgl",
         "--use-angle=swiftshader",
         
@@ -80,8 +74,6 @@ class FlyioChrome {
         "--disable-threaded-compositing",
         "--disable-smooth-scrolling",
         "--disable-checker-imaging",
-        "--disable-new-content-rendering-timeout",
-        "--disable-image-animation-resync",
         
         // UI/UX disabling
         "--hide-scrollbars",
@@ -92,7 +84,6 @@ class FlyioChrome {
         "--no-startup-window",
         "--no-default-browser-check",
         "--no-pings",
-        "--no-zygote",
         
         // Logging and debugging
         "--disable-logging",
@@ -114,41 +105,32 @@ class FlyioChrome {
         "--disable-blink-features=AutomationControlled",
         "--disable-canvas-aa",
         "--disable-2d-canvas-clip-aa",
-        "--disable-gl-drawing-for-tests",
-        
-        // Force minimal resource usage
-        "--renderer-process-limit=1",
-        "--max-gum-fps=5",
-        "--force-color-profile=srgb",
-        "--force-fieldtrials=*BackgroundTracing/default/",
-        "--disable-field-trial-config",
-        "--allow-running-insecure-content",
-        "--metrics-recording-only"
+        "--disable-gl-drawing-for-tests"
       ],
       timeout: 120000, // 2 minutes
-      protocolTimeout: 240000, // 4 minutes  
+      protocolTimeout: 180000, // 3 minutes  
       pipe: true,
-      slowMo: 500, // Very slow to reduce resource usage
+      slowMo: 300, // Moderate slowdown for stability
       handleSIGINT: false,
       handleSIGTERM: false,
       handleSIGHUP: false
     };
   }
 
-  static async launchWithRetries(maxRetries = 5) {
-    console.log('✈️ Launching Chrome with extreme Fly.io optimizations...');
+  static async launchWithRetries(maxRetries = 3) {
+    console.log('🌐 Launching Chrome with cloud optimizations...');
     
-    const launchOptions = this.getExtremeFlyioLaunchOptions();
+    const launchOptions = this.getOptimizedLaunchOptions();
     let lastError = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🌐 Chrome launch attempt ${attempt}/${maxRetries}...`);
+        console.log(`🚀 Chrome launch attempt ${attempt}/${maxRetries}...`);
         
         if (attempt > 1) {
           // Progressive delay with jitter
-          const baseDelay = attempt * 3000; // 3s, 6s, 9s, 12s, 15s
-          const jitter = Math.random() * 2000; // 0-2s random
+          const baseDelay = attempt * 2000; // 2s, 4s, 6s
+          const jitter = Math.random() * 1000; // 0-1s random
           const delay = baseDelay + jitter;
           
           console.log(`⏳ Waiting ${Math.round(delay)}ms before retry...`);
@@ -162,7 +144,7 @@ class FlyioChrome {
         }
         
         const browser = await puppeteer.launch(launchOptions);
-        console.log('✅ Chrome launched successfully with Fly.io optimizations');
+        console.log('✅ Chrome launched successfully with cloud optimizations');
         
         // Test the connection immediately
         const pages = await browser.pages();
@@ -184,14 +166,12 @@ class FlyioChrome {
           console.log('🔧 Protocol error detected - Chrome closing too quickly');
         }
         
-        // Try with even more extreme settings on later attempts
-        if (attempt > 2) {
+        // Try with additional restrictive settings on later attempts
+        if (attempt > 1) {
           launchOptions.args.push(
             '--disable-features=VizHitTestSurfaceLayer',
-            '--disable-features=VizHitTestDrawQuad', 
             '--disable-partial-raster',
-            '--disable-skia-runtime-opts',
-            '--disable-threaded-compositing'
+            '--disable-skia-runtime-opts'
           );
           console.log('🔧 Added extra restrictive flags for attempt', attempt);
         }
@@ -214,7 +194,7 @@ class FlyioChrome {
     );
     
     if (isResourceConstraint) {
-      console.log('🚨 Fly.io resource constraints detected');
+      console.log('🚨 Cloud environment resource constraints detected');
       return null; // Return null for graceful handling
     }
     
@@ -222,4 +202,4 @@ class FlyioChrome {
   }
 }
 
-module.exports = FlyioChrome;
+module.exports = CloudChrome;
