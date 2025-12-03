@@ -2,9 +2,10 @@ name: Court Availability Checker
 
 on:
   schedule:
-    # Run every 2 hours for maximum data freshness within free tier limits
-    # This gives us ~360 runs per month (12 per day)
-    - cron: "0 */2 * * *"
+    # Only run at 12 PM PST (20:00 UTC winter / 19:00 UTC summer)
+    - cron: "0 19,20 * * *"
+    # Only run at 8 PM PST (04:00 UTC winter / 03:00 UTC summer) 
+    - cron: "0 3,4 * * *"
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -54,21 +55,12 @@ jobs:
           export DISPLAY=:99
           Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
 
-      - name: Determine if email should be sent
+      - name: Set email sending to true
         id: email-check
         run: |
-          # Get current UTC hour (GitHub Actions run in UTC)
-          current_hour_utc=$(date -u +%H)
-          # Check if current UTC hour matches 12 PM or 8 PM PST
-          # 12 PM PST = 20:00 UTC (winter) or 19:00 UTC (summer)
-          # 8 PM PST = 04:00 UTC (winter) or 03:00 UTC (summer)
-          if [ "$current_hour_utc" = "19" ] || [ "$current_hour_utc" = "20" ] || [ "$current_hour_utc" = "03" ] || [ "$current_hour_utc" = "04" ]; then
-            echo "should_send=true" >> $GITHUB_OUTPUT
-            echo "📧 Email will be sent (UTC hour: $current_hour_utc)"
-          else
-            echo "should_send=false" >> $GITHUB_OUTPUT
-            echo "📧 Email disabled for this run (UTC hour: $current_hour_utc)"
-          fi
+          # Always send email since we only run at email times now
+          echo "should_send=true" >> $GITHUB_OUTPUT
+          echo "📧 Email will be sent (scheduled run)"
 
       - name: Run court availability check
         env:
