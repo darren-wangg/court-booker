@@ -1,18 +1,18 @@
-const GmailSmtpService = require('./gmailSmtpService');
+const ResendEmailService = require('./resendEmailService');
 const config = require('../config');
 
 class EmailService {
   constructor() {
-    this.gmailSmtp = null;
+    this.emailProvider = null;
   }
 
   async initialize() {
     try {
-      console.log('🔌 Creating Gmail SMTP service...');
-      this.gmailSmtp = new GmailSmtpService();
-      console.log('🔌 Initializing Gmail SMTP service...');
-      await this.gmailSmtp.initialize();
-      console.log('✅ Gmail SMTP service initialized successfully');
+      console.log('🔌 Creating Resend email service...');
+      this.emailProvider = new ResendEmailService();
+      console.log('🔌 Initializing Resend email service...');
+      await this.emailProvider.initialize();
+      console.log('✅ Resend email service initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize email service:', error);
       throw error;
@@ -30,7 +30,7 @@ class EmailService {
         return { success: true, messageId: 'bypass-mode-' + Date.now(), bypassed: true };
       }
       
-      return await this.gmailSmtp.sendEmail({ to, subject, html, from });
+      return await this.emailProvider.sendEmail({ to, subject, html, from });
     } catch (error) {
       console.error('Error sending email:', error);
       return { success: false, error: error.message };

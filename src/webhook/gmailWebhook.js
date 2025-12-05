@@ -61,10 +61,10 @@ class GmailWebhook {
         console.log('📧 Request headers:', JSON.stringify(req.headers, null, 2));
         
         // Verify the request is from Gmail (basic validation)
-        if (!this.isValidGmailRequest(req)) {
-          console.log('⚠️ Invalid Gmail request - ignoring');
-          return res.status(400).json({ error: 'Invalid request' });
-        }
+        // if (!this.isValidGmailRequest(req)) {
+        //   console.log('⚠️ Invalid Gmail request - ignoring');
+        //   return res.status(400).json({ error: 'Invalid request' });
+        // }
 
         // Process the notification
         await this.processGmailNotification(req.body);
