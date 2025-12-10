@@ -418,7 +418,8 @@ class GmailWebhook {
         return;
       }
 
-      // Check for new booking requests
+      // Check for new booking requests AND manual triggers (Check emails)
+      console.log('🔍 Checking for booking requests and Check email triggers...');
       const results = await this.bookingHandler.checkAndProcessBookings();
       
       // Update last check timestamp only if we actually processed something
@@ -427,12 +428,14 @@ class GmailWebhook {
       }
       
       if (results.length > 0) {
-        console.log(`✅ Processed ${results.length} booking request(s) from Gmail notification`);
+        console.log(`✅ Processed ${results.length} email(s) from Gmail notification`);
         results.forEach((result, index) => {
-          console.log(`${index + 1}. ${result.success ? '✅ Success' : '❌ Failed'}: ${result.bookingRequest?.formatted?.date || 'Unknown'}`);
+          const type = result.type === 'manual_trigger' ? 'Check email' : 'Booking request';
+          const identifier = result.type === 'manual_trigger' ? result.user : (result.bookingRequest?.formatted?.date || 'Unknown');
+          console.log(`${index + 1}. ${type}: ${result.success ? '✅ Success' : '❌ Failed'}: ${identifier}`);
         });
       } else {
-        console.log('📭 No new booking requests found');
+        console.log('📭 No new booking requests or Check emails found');
       }
       
     } catch (error) {
