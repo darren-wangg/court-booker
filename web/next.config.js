@@ -1,13 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable serverless functions
-  experimental: {
-    serverActions: true,
-  },
-  // For Puppeteer/Chrome in serverless
+  // Server Actions are enabled by default in Next.js 14+
+
+  // For Puppeteer/Playwright in serverless (Browserless.io via WebSocket)
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Exclude Puppeteer from client bundle
+      // Exclude browser automation libraries from client bundle
       config.externals = [...(config.externals || []), 'puppeteer', 'playwright'];
     }
     return config;

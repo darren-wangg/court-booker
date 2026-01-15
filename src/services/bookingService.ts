@@ -1,6 +1,7 @@
 import puppeteer, { Browser, Page } from "puppeteer";
 import { getUser, User, amenityUrl } from '../config';
 import { CloudChrome } from '../utils/cloudChrome';
+import { PlaywrightBrowser } from '../utils/playwrightBrowser';
 
 interface TimeSlot {
   startHour: number;
@@ -30,13 +31,20 @@ export default class BookingService {
   async initialize() {
     try {
       console.log('🌐 Initializing booking service...');
-      
+
+      // Check for Browserless.io cloud browser token
+      const browserlessToken = process.env.BROWSERLESS_TOKEN;
+      if (browserlessToken) {
+        console.log('☁️ Browserless.io token detected - using cloud browser service for booking');
+        return this.initializeBrowserlessChrome(browserlessToken);
+      }
+
       // Detect production cloud environment
       const isProduction = process.env.NODE_ENV === 'production';
-      
+
       // Initialize resource constraint flag (legacy name for compatibility)
       this.resourceConstraint = false;
-      
+
       // Production cloud-optimized Chrome configuration for booking
       if (isProduction) {
         console.log('🌐 Production cloud environment detected - using optimized Chrome for booking');
@@ -81,29 +89,85 @@ export default class BookingService {
     }
   }
 
+  async initializeBrowserlessChrome(token: string) {
+    try {
+      console.log('☁️ Connecting to Browserless.io cloud browser service for booking...');
+      console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
+
+      // Connect to cloud browser via WebSocket
+      const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
+      console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
+
+      const playwrightBrowser = new PlaywrightBrowser();
+
+      // Add timeout to the connection attempt
+      const connectionPromise = playwrightBrowser.connect(browserWSEndpoint);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), 30000);
+      });
+
+      console.log('⏳ Attempting WebSocket connection with 30s timeout...');
+      this.browser = await Promise.race([connectionPromise, timeoutPromise]);
+
+      console.log('✅ Connected to Browserless.io cloud browser for booking');
+
+      // Create new page
+      this.page = await this.browser.newPage();
+
+      // Set realistic user agent and headers
+      await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+      await this.page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
+      });
+
+      // Set viewport
+      await this.page.setViewport({ width: 1366, height: 768 });
+
+      // Set generous timeouts for cloud browser
+      this.page.setDefaultNavigationTimeout(90000); // 90 seconds
+      this.page.setDefaultTimeout(60000); // 60 seconds
+
+      console.log('✅ Browserless.io booking browser configured and ready');
+
+    } catch (error: any) {
+      console.error('❌ Failed to connect to Browserless.io:', error.message);
+      console.error('💡 Possible issues:');
+      console.error('   - Invalid or expired token');
+      console.error('   - Network connectivity from cloud server to Browserless.io');
+      console.error('   - Rate limit exceeded');
+      console.error('   - Browserless.io service downtime');
+
+      console.log('🔄 Falling back to local cloud browser...');
+      this.resourceConstraint = true;
+      return this.initializeCloudBookingChrome();
+    }
+  }
+
   async initializeCloudBookingChrome() {
     try {
       console.log('🌐 Initializing cloud booking Chrome...');
-      
+
       // Use CloudChrome for optimized cloud environment settings
       try {
         this.browser = await CloudChrome.launchWithRetries(3);
         console.log('✅ Cloud booking Chrome launched');
-        
+
         this.page = await this.browser.newPage();
         this.page.setDefaultNavigationTimeout(30000);
         this.page.setDefaultTimeout(15000);
-        
+
         console.log('✅ Cloud booking service initialized');
-        
-      } catch (error) {
+
+      } catch (error: any) {
         console.error('❌ Cloud booking Chrome failed:', error.message);
         this.resourceConstraint = true;
         this.browser = null;
         this.page = null;
       }
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('❌ Cloud booking initialization failed:', error.message);
     }
   }

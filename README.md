@@ -1,165 +1,307 @@
-## Court Booker
+# Court Booker
 
-An automated system that checks amenity court availability and enables bookings through a modern web interface.
+Automated amenity reservation system with availability checking and booking automation - **100% serverless!**
 
-### Features
+## 🚀 Features
 
-- **Automated Availability Checking**: Runs 4 times daily via GitHub Actions to check court availability for the next 7 days
+- **Automated Availability Checking**: Runs 4x daily via GitHub Actions to check court availability for the next 7 days
 - **Web Dashboard**: Modern Next.js frontend to view availability and trigger bookings
-- **Automated Booking**: Browser automation to book available time slots
+- **Automated Booking**: Browser automation via Browserless.io cloud service
 - **Data Storage**: Supabase database to store availability snapshots and history
+- **Fully Serverless**: No servers to manage - runs entirely on Vercel + Browserless.io!
 
 ---
 
-## System Architecture
+## 🏗️ System Architecture
 
 ### Data Flow
 
-1. **GitHub Actions** (scheduled 4x daily) → Runs `check-now.js` script
-2. **Availability Check** → Scrapes amenity website using Playwright/Puppeteer
+1. **GitHub Actions** (scheduled 4x daily) → Runs `check-now.ts` script
+2. **Availability Check** → Connects to Browserless.io cloud browser → Scrapes amenity website
 3. **Data Storage** → Saves results to Supabase `availability_snapshots` table
 4. **Web Frontend** → Next.js app fetches latest data from Supabase
-5. **Booking** → User triggers booking via web UI → Worker API → Browser automation
+5. **Booking** → User triggers booking via web UI → Next.js API route → Browserless.io → Amenity website
 
 ### Components
 
-- **Backend Scripts**: Node.js scripts for availability checking (`src/scripts/check-now.js`)
-- **Worker API**: Express server on DigitalOcean droplet for Puppeteer operations (`src/api/worker-server.js`)
-- **Frontend**: Next.js app with serverless functions (`web/`)
+- **Backend Scripts**: TypeScript scripts for availability checking (`src/scripts/check-now.ts`)
+- **Browser Automation**: Browserless.io cloud browser service (no local Chrome needed!)
+- **API Routes**: Next.js serverless functions that call services directly (`web/app/api/`)
+- **Frontend**: Next.js app deployed on Vercel (`web/`)
 - **Database**: Supabase PostgreSQL for availability snapshots
 
 ---
 
-## Tech Stack
+## 💻 Tech Stack
 
 - **Runtime**: Node.js with TypeScript
-- **Browser Automation**: Playwright (primary), Puppeteer (fallback)
-- **Frontend**: Next.js, React, Tailwind CSS
+- **Browser Automation**: Playwright/Puppeteer + **Browserless.io** cloud browser service
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
 - **Database**: Supabase (PostgreSQL)
-- **Deployment**: 
-  - GitHub Actions for scheduled checks
-  - Vercel/Cloudflare Workers for frontend
-  - DigitalOcean droplet for worker API
+- **Deployment**:
+  - **Vercel** - Frontend + API routes (fully serverless)
+  - **GitHub Actions** - Scheduled availability checks
+  - **Browserless.io** - Cloud browser automation (no local Chrome!)
 
 ---
 
-## Setup
+## 🚀 Deployment
 
-### 1. Install Dependencies
+**👉 See [DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md) for complete deployment instructions!**
 
-```bash
-pnpm install
-```
+Quick overview:
 
-### 2. Environment Variables
+### 1. Supabase Setup
+- Create Supabase project
+- Run `supabase-schema.sql` to create table
+- Get API keys
 
-Create a `.env` file in the root directory:
+### 2. Browserless.io Setup
+- Sign up at [browserless.io](https://www.browserless.io/)
+- Get API token (free tier available!)
+- No server or Chrome installation needed!
 
-```env
-# User credentials (multi-user support)
-USER1_EMAIL=your-amenity-email@example.com
-USER1_PASSWORD=your-amenity-password
-# USER2_EMAIL, USER2_PASSWORD, etc. for additional users
+### 3. GitHub Actions
+- Add secrets: `BROWSERLESS_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, user credentials
+- Workflow runs automatically 4x daily
 
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+### 4. Vercel Deployment
+- Import GitHub repo
+- Set root directory to `web`
+- Add environment variables (including `BROWSERLESS_TOKEN`)
+- Deploy!
 
-# Worker API (for DigitalOcean droplet)
-WORKER_SECRET=your-secret-token
-WORKER_PORT=3001
-
-# Optional
-AMENITY_URL=https://www.avalonaccess.com/Information/Information/AmenityReservation?amenityKey=...
-HEADLESS_MODE=true
-```
-
-### 3. Database Setup
-
-Run the SQL schema in `supabase-schema.sql` to create the `availability_snapshots` table.
-
-### 4. GitHub Actions
-
-Configure repository secrets with your environment variables, and the workflow will automatically run availability checks 4 times daily.
-
-### 5. Worker API (DigitalOcean Droplet)
-
-Deploy the worker server to handle Puppeteer operations:
-
-```bash
-pnpm run worker
-```
-
-This starts the Express server that the Next.js serverless functions will call.
-
-### 6. Frontend (Next.js)
-
-Navigate to the `web/` directory and follow the setup instructions in `web/README.md`.
+**Total time: ~30 minutes**
 
 ---
 
-## Usage
+## 🛠️ Local Development
 
-### Local Availability Check
+### Prerequisites
+- Node.js 18+
+- pnpm (or npm)
+- Browserless.io account (free tier works!)
+- Supabase project
+
+### Setup
+
+1. **Install dependencies**
+   ```bash
+   pnpm install
+   cd web && pnpm install
+   ```
+
+2. **Environment variables**
+
+   Create `.env` in root:
+   ```env
+   # Browserless.io (REQUIRED)
+   BROWSERLESS_TOKEN=your-browserless-token
+
+   # User credentials
+   USER1_EMAIL=your-amenity-email@example.com
+   USER1_PASSWORD=your-amenity-password
+
+   # Supabase
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+   # Optional
+   AMENITY_URL=https://www.avalonaccess.com/...
+   ```
+
+3. **Test availability check**
+   ```bash
+   pnpm check
+   ```
+
+   You should see:
+   ```
+   ☁️ Browserless.io token detected - using cloud browser service
+   ✅ Connected to Browserless.io cloud browser
+   ```
+
+4. **Run frontend**
+   ```bash
+   cd web
+   pnpm dev
+   ```
+
+5. **Open browser**
+   ```
+   http://localhost:3000
+   ```
+
+---
+
+## 📝 Usage
+
+### Run availability check locally
 
 ```bash
 pnpm check
 # or for a specific user:
-node src/scripts/check-now.js 2
+pnpm check 2
 ```
 
-### Start Worker API
-
-```bash
-pnpm run worker
-```
-
-### Frontend Development
+### Frontend development
 
 ```bash
 cd web
-pnpm install
 pnpm dev
+```
+
+### Build for production
+
+```bash
+# Root project
+pnpm build
+
+# Web frontend
+cd web
+pnpm build
 ```
 
 ---
 
-## Project Structure
+## 📦 Project Structure
 
 ```
 court-booker/
 ├── src/
-│   ├── api/
-│   │   └── worker-server.ts      # Express API for Puppeteer operations
 │   ├── scripts/
-│   │   └── check-now.ts           # Availability check script
+│   │   └── check-now.ts              # CLI availability check script
 │   ├── services/
-│   │   ├── reservationChecker.ts # Core availability checking logic
-│   │   └── bookingService.ts     # Booking automation
+│   │   ├── reservationChecker.ts    # Core availability checking (with Browserless support)
+│   │   └── bookingService.ts        # Booking automation (with Browserless support)
 │   ├── utils/
-│   │   ├── cloudChrome.ts        # Cloud-optimized Chrome config
-│   │   ├── playwrightBrowser.ts  # Playwright browser wrapper
-│   │   └── supabaseClient.ts     # Supabase client helper
-│   └── config.ts                  # Configuration management
-├── web/                           # Next.js frontend
-│   ├── app/                      # Next.js app directory
-│   │   ├── api/                  # Serverless API routes
-│   │   └── page.js               # Main page
-│   └── ...
+│   │   ├── cloudChrome.ts           # Cloud-optimized Chrome config (fallback)
+│   │   ├── playwrightBrowser.ts     # Playwright browser wrapper (Browserless connector)
+│   │   └── supabaseClient.ts        # Supabase database operations
+│   ├── config.ts                     # Configuration management
+│   └── api/
+│       └── worker-server.ts          # [DEPRECATED] Old DigitalOcean worker (no longer used)
+├── web/                              # Next.js frontend (deployed on Vercel)
+│   ├── app/
+│   │   ├── api/                     # Serverless API routes
+│   │   │   ├── book/route.ts        # Booking endpoint (calls BookingService directly)
+│   │   │   └── availability/
+│   │   │       ├── latest/route.js  # Fetch latest from Supabase
+│   │   │       └── refresh/route.ts # Trigger check (calls ReservationChecker directly)
+│   │   ├── page.tsx                 # Main UI
+│   │   └── layout.tsx               # Layout
+│   └── package.json                 # Web dependencies
 ├── .github/
 │   └── workflows/
-│       └── court-checker.yml      # Scheduled availability checks
-└── supabase-schema.sql           # Database schema
+│       └── court-checker.yml         # Scheduled availability checks (4x daily)
+├── DEPLOYMENT_SIMPLE.md             # 📖 Deployment guide (start here!)
+├── MIGRATION_FROM_DIGITALOCEAN.md   # Migration guide from old setup
+├── CLAUDE.md                         # Architecture documentation for coding agents
+├── supabase-schema.sql              # Database schema
+└── package.json                      # Root dependencies
 ```
 
 ---
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
-- **Availability check fails**: Verify credentials and amenity URL in `.env`
-- **Supabase connection issues**: Check `SUPABASE_URL` and key variables
-- **Worker API not responding**: Ensure the server is running on the droplet and `WORKER_SECRET` matches
-- **Browser automation errors**: Check resource constraints on the droplet; may need to adjust Chrome launch options
+### Availability check fails
+- ✅ Verify `BROWSERLESS_TOKEN` is set correctly
+- ✅ Check Browserless.io dashboard for usage/errors
+- ✅ Verify user credentials are correct
+- ✅ Check amenity URL is valid
 
-For detailed architecture information, see `SYSTEM_ARCHITECTURE.md`.
+### Booking fails
+- ✅ Check Vercel function logs (Deployments → Functions)
+- ✅ Verify all environment variables are set in Vercel
+- ✅ Test availability check first to ensure Browserless connection works
+- ✅ Check Browserless.io dashboard for session logs
+
+### No data in Supabase
+- ✅ Verify GitHub Actions ran successfully (Actions tab)
+- ✅ Check workflow logs for errors
+- ✅ Verify `SUPABASE_SERVICE_ROLE_KEY` is correct
+- ✅ Ensure table exists (run `supabase-schema.sql`)
+
+### Browserless.io connection errors
+- ✅ Verify token has no extra spaces
+- ✅ Check account status (free tier hours remaining?)
+- ✅ Try running `pnpm check` locally to debug
+- ✅ Check Browserless.io status page
+
+**See [DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md#-troubleshooting) for more help.**
+
+---
+
+## 💰 Cost Breakdown
+
+### Free Tier (Testing)
+- Supabase: Free (up to 500MB)
+- GitHub Actions: Free (2,000 minutes/month)
+- **Browserless.io: Free (6 hours/month)** 🎉
+- Vercel: Free (Hobby plan)
+- **Total: $0/month** ✨
+
+### Production (Light Use)
+- Supabase: Free or $25/mo (Pro)
+- GitHub Actions: Free
+- **Browserless.io: $9/mo (100 hours)** 🚀
+- Vercel: Free or $20/mo (Pro)
+- **Total: $9-54/month**
+
+**Much simpler and more reliable than self-hosted Chrome!**
+
+---
+
+## 📚 Documentation
+
+- **[DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md)** - Complete serverless deployment guide
+- **[MIGRATION_FROM_DIGITALOCEAN.md](./MIGRATION_FROM_DIGITALOCEAN.md)** - Migrating from old setup
+- **[CLAUDE.md](./CLAUDE.md)** - Architecture and coding guidelines
+- **[supabase-schema.sql](./supabase-schema.sql)** - Database schema
+
+---
+
+## 🔄 Migrating from DigitalOcean?
+
+If you previously used the DigitalOcean worker setup:
+
+1. Sign up for Browserless.io
+2. Update Vercel env vars (add `BROWSERLESS_TOKEN`, remove `WORKER_URL`)
+3. Update GitHub Actions secrets (add `BROWSERLESS_TOKEN`)
+4. Pull latest code
+5. Destroy DigitalOcean droplet
+
+**See [MIGRATION_FROM_DIGITALOCEAN.md](./MIGRATION_FROM_DIGITALOCEAN.md) for detailed steps.**
+
+---
+
+## ⚠️ Disclaimer
+
+This tool automates interaction with amenity booking websites for personal use only.
+- Use responsibly and respect rate limits
+- Don't abuse the service
+- Respect the amenity provider's terms of service
+- Intended for authorized users only
+
+---
+
+## 🎯 What's New (v2.0 - Serverless)
+
+**Major improvements:**
+- ✅ **Removed DigitalOcean dependency** - No more server management!
+- ✅ **Added Browserless.io** - Cloud browser via WebSocket
+- ✅ **Direct service calls** - Next.js API routes call services directly
+- ✅ **Simpler deployment** - 3 steps instead of 4
+- ✅ **Better error handling** - Improved logging
+- ✅ **TypeScript API routes** - Better type safety
+- ✅ **Comprehensive docs** - Multiple deployment guides
+
+**Deprecated:**
+- ❌ `worker-server.ts` (Express API on DigitalOcean)
+- ❌ `WORKER_URL` and `WORKER_SECRET` env vars
+- ❌ SSH/PM2 server management
+
+---
+
+Made with ❤️ for automated court booking
