@@ -7,3 +7,5 @@ vercel.json
 .vercel
 .todo.md
 gmail-service-account.json
+.next/
+web/.next/

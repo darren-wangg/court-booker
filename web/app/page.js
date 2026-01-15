@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createBrowserClient } from '@/lib/supabase'
+import Spinner from './components/Spinner'
 
 export default function Home() {
   const [availability, setAvailability] = useState(null)
@@ -90,7 +91,10 @@ export default function Home() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading availability data...</div>
+        <div className="flex flex-col items-center gap-4">
+          <Spinner size="xl" />
+          <div className="text-xl text-gray-600">Loading availability data...</div>
+        </div>
       </div>
     )
   }
@@ -123,8 +127,9 @@ export default function Home() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
           >
+            {refreshing && <Spinner size="sm" className="border-white border-t-gray-300" />}
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
