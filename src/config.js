@@ -73,27 +73,7 @@ module.exports = {
   
   // Browser configuration
   headless: process.env.HEADLESS_MODE === 'true',
-  
-  // Email notifications
-  notificationEmail: process.env.NOTIFICATION_EMAIL || '',
-  // Enable email sending for local testing, respect SEND_EMAIL env var if set
-  sendEmail: process.env.SEND_EMAIL !== undefined ? process.env.SEND_EMAIL === 'true' : true,
-  
-  // Gmail SMTP configuration
-  gmailSmtpUser: process.env.GMAIL_SMTP_USER || '',
-  gmailSmtpPassword: process.env.GMAIL_SMTP_PASSWORD || '',
-  
-  // Gmail API configuration (for receiving booking requests)
-  gmailClientId: process.env.GMAIL_CLIENT_ID || '',
-  gmailClientSecret: process.env.GMAIL_CLIENT_SECRET || '',
-  gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN || '',
-  gmailRedirectUri: process.env.GMAIL_REDIRECT_URI || 'http://localhost:3000/oauth2callback',
-  
-  // Gmail Push Notifications configuration
-  gmailProjectId: process.env.GMAIL_PROJECT_ID || '',
-  gmailTopicName: process.env.GMAIL_TOPIC_NAME || 'court-booker-notifications',
-  webhookUrl: process.env.WEBHOOK_URL || 'http://localhost:3000/gmail/webhook',
-  
+
   // Timeouts (in milliseconds)
   timeouts: TIMEOUTS,
 };

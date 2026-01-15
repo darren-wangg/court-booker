@@ -1,325 +1,315 @@
-# Court Booker
+## Court Booker
 
-A comprehensive automated system that checks for available court reservations and enables email-based booking. Powered by Puppeteer, GitHub Actions, Gmail API, and Gmail SMTP for a seamless reservation making experience.
+An automated system that:
+
+- Checks amenity court availability for the next 7 days using **Playwright/Puppeteer**.
+- Sends HTML availability reports via a unified email service (currently backed by **Resend**).
+- Listens to a **Gmail inbox** for:
+  - “Check availability” style emails (manual triggers).
+  - Natural-language **booking requests** (direct or as replies to availability emails).
+- Automates booking through the amenity website using browser automation.
+
+The system can be driven by:
+
+- **CLI scripts** (`pnpm check`, `pnpm book`, etc.).
+- An **Express webhook server** (for Gmail push notifications + manual HTTP triggers).
+- An **API route** (`api/check-availability.js`) suitable for serverless platforms.
+
+---
 
 ## System Overview
 
-This system consists of two main phases that work together to provide a complete court booking solution:
+### Phase 1: Availability Checking 🔍
 
-### Phase 1: **Availability Checking** 🔍
+- **Triggers**
+  - One-off via CLI: `pnpm check` (`src/scripts/check-now.js`).
+  - HTTP via API route: `POST api/check-availability.js`.
+  - Optionally via GitHub Actions (if configured) calling the script or API.
 
-- 🔄 **Automated Monitoring**: Runs every 2 hours via GitHub Actions
-- 🌐 **Browser Automation**: Uses Puppeteer to login and scrape amenity website
-- 📅 **Data Extraction**: Parses HTML tables to extract reservation data
-- ⏰ **Time Slot Analysis**: Identifies available slots (10 AM - 10 PM)
-- 📧 **Smart Notifications**: Sends emails only at 2 PM & 10 PM PST
-- 🎯 **Complete Coverage**: Handles pagination to load all reservations
-- 📱 **Professional Emails**: HTML-formatted availability reports
+- **What happens**
+  - Browser automation (via `ReservationChecker` and `PlaywrightBrowser` / `CloudChrome`) logs in to the amenity site.
+  - Robust table parsing and pagination (with CI/cloud-specific fallbacks) pulls reservation rows.
+  - Time slot analysis computes availability from **10 AM–10 PM** for the next **7 days**.
+  - An HTML availability report is generated (via `src/email-templates/availabilities.js`).
+  - If email sending is enabled, the report is delivered via `EmailService` (Resend-backed) to user-specific notification emails.
 
-### Phase 2: **Email Booking System** 📧
+### Phase 2: Email Booking & Manual Triggers 📧
 
-- 📬 **Real-time Processing**: Processes booking requests immediately via Gmail Push Notifications
-- 🧠 **Natural Language Processing**: Parses date/time from various formats
-- 🤖 **Automated Booking**: Uses Puppeteer to fill and submit booking forms
-- ✅ **Confirmation System**: Sends success/error notifications
-- 🔐 **Secure Authentication**: OAuth2 for Gmail API access
-- 👥 **Multi-user Support**: Handles multiple court bookers
-- 🛡️ **Error Handling**: Comprehensive error management and recovery
+- **Gmail integration**
+  - Gmail API (OAuth2 + refresh token) reads from the configured inbox.
+  - **Push notifications**:
+    - Gmail → Pub/Sub topic → your `WEBHOOK_URL` → Express webhook (`/gmail/webhook`).
+    - Managed by `src/services/gmailPushService.js` and scripts:
+      - `src/scripts/setup-gmail-push.js`
+      - `src/scripts/renew-gmail-push.js`
+  - **Polling backup**:
+    - `src/scripts/poll-emails.js` and webhook endpoints (`/gmail/poll`, `/gmail/process-emails`) can be used when push is unavailable.
 
-## Key Features
+- **Email flows**
+  - `src/emailParser.js`:
+    - Detects:
+      - Manual “check now” messages (“check”, “check availability”, etc.).
+      - Direct booking requests (emails containing “book” + date/time text).
+      - Replies to availability emails (subject contains `Re: ... Avalon Court Availability`).
+    - Parses:
+      - Dates like “Sunday September 7, 2025”, “9/7/2025”, “2025-09-07”.
+      - Times like “5 - 6 PM”, “5:00 - 6:00 PM”, “17:00 - 18:00”.
+    - Returns `{ bookingRequests, manualTriggers }` per inbox scan.
 
-- **Smart Scheduling**: Runs every 2 hours with intelligent email throttling
-- **HTML Parsing**: Robust extraction from complex table structures
-- **Multi-format Support**: Handles various date/time formats in emails
-- **Error Recovery**: Graceful handling of booking failures
-- **Professional Emails**: HTML-formatted notifications with responsive design
-- **Free Infrastructure**: Uses GitHub Actions free tier (2,000 minutes/month)
+  - `src/emailBookingHandler.js`:
+    - For **manual triggers**:
+      - Applies a cooldown (5 minutes) to avoid repeated expensive checks.
+      - Runs `ReservationChecker` inline for the identified user.
+      - Sends an availability report email back to that user.
+    - For **booking requests**:
+      - Creates a `BookingService` instance for the relevant user.
+      - Automates login → datepicker selection → time dropdowns → submit.
+      - Sends success/error notifications via `EmailService`.
+
+  - `src/webhook/gmailWebhook.js` (Express):
+    - `POST /gmail/webhook`: Gmail push entrypoint → runs `EmailBookingHandler.checkAndProcessBookings()`.
+    - `POST /gmail/check-bookings`, `/gmail/poll`, `/gmail/process-emails`: HTTP triggers for email processing (useful for cron, debugging, or fallback).
+    - `POST /gmail/check-availability`: manually trigger an availability check for a specific user via HTTP.
+    - `GET /health`: basic health and runtime info.
+
+---
+
+## Tech Stack & Key Tools
+
+- **Runtime**
+  - Node.js, `pnpm` for package management.
+
+- **Browser automation**
+  - `playwright` via `src/utils/playwrightBrowser.js` (primary).
+  - `puppeteer` and `src/utils/cloudChrome.js` for compatibility in constrained/cloud environments.
+
+- **Email**
+  - `resend` via `src/services/resendEmailService.js` (current primary sender).
+  - `src/services/emailService.js` is the **single abstraction** all code should call to send email.
+  - `src/services/gmailSmtpService.js` remains for legacy Gmail SMTP flows (used when Gmail SMTP env vars are provided).
+
+- **Gmail & Push**
+  - `googleapis` for Gmail API and push notifications.
+  - `src/services/gmailPushService.js` for watch setup/refresh/stop.
+
+- **Web Server**
+  - `express` in `src/webhook/gmailWebhook.js` for webhook + manual HTTP endpoints.
+
+---
 
 ## Setup
 
-1. **Install dependencies:**
+1. **Install dependencies**
 
    ```bash
    pnpm install
    ```
 
-2. **Configure credentials:**
-   Create a `.env` file in the project root:
+2. **Create your `.env`**
+
+   Use `src/.env.template` as a guide (see that file for the full list). Core variables:
 
    ```env
-   # Amenity website credentials
-   EMAIL=your-email@example.com
-   PASSWORD=your-password
+   # Primary user (legacy single-user config)
+   EMAIL=your-amenity-email@example.com
+   PASSWORD=your-amenity-password
+   NOTIFICATION_EMAIL=where-to-send-reports@example.com
 
-   # Gmail SMTP for sending emails
-   GMAIL_SMTP_USER=courtbooker824@gmail.com
-   GMAIL_SMTP_PASSWORD=your-16-character-app-password
+   # Optional multi-user format
+   USER1_EMAIL=your-amenity-email@example.com
+   USER1_PASSWORD=your-amenity-password
+   USER1_NOTIFICATION_EMAIL=where-to-send-reports@example.com
+   # USER2_EMAIL, USER2_PASSWORD, etc...
 
-   # Notification email (where availability emails are sent)
-   NOTIFICATION_EMAIL=your-notification-email@example.com
+   # Resend (recommended email provider)
+   RESEND_API_KEY=re_your_api_key
+   RESEND_FROM_EMAIL="Court Booker <no-reply@example.com>"
 
-   # Gmail API for receiving booking requests
+   # Gmail API for reading inbox (booking + “check” emails)
    GMAIL_CLIENT_ID=your_gmail_client_id
    GMAIL_CLIENT_SECRET=your_gmail_client_secret
    GMAIL_REFRESH_TOKEN=your_gmail_refresh_token
+   GMAIL_REDIRECT_URI=http://localhost:3000/oauth2callback
 
-   # Gmail Push Notifications (for real-time processing)
+   # Gmail Push Notifications → Pub/Sub → Webhook
    GMAIL_PROJECT_ID=your_google_cloud_project_id
    GMAIL_TOPIC_NAME=court-booker-notifications
    WEBHOOK_URL=https://your-domain.com/gmail/webhook
+
+   # Optional overrides
+   AMENITY_URL=https://www.avalonaccess.com/Information/Information/AmenityReservation?amenityKey=dd5c4252-e044-4012-a1e3-ec2e1a8cdddf
+   HEADLESS_MODE=true
+   SEND_EMAIL=true
+   SMTP_BYPASS=false
    ```
 
-3. **Set up Gmail SMTP:**
+   For detailed Gmail push setup and deployment instructions, see `src/setup/GMAIL_PUSH_SETUP.md` and `src/setup/RAILWAY_DEPLOYMENT.md`.
 
-   - Enable 2-Factor Authentication on your Gmail account
-   - Generate an App-Specific Password for "Court Booker"
-   - Add the credentials to your `.env` file
-
-4. **Set up Gmail API:**
+3. **Set up Gmail API (OAuth)**
 
    ```bash
    pnpm run setup-gmail
    ```
 
-5. **Set up Real-time Booking Processing:**
+   This will guide you through creating credentials and output `GMAIL_REFRESH_TOKEN` + the other required env values.
+
+4. **Set up Gmail Push Notifications**
 
    ```bash
-   # Set up Gmail push notifications
+   # Configure Pub/Sub topic + webhook
    pnpm run setup-push
 
-   # Start the webhook server (for real-time processing)
-   pnpm run start-webhook
+   # Later, to force renew the watch:
+   pnpm run renew-push
    ```
 
-   📖 **Detailed Setup Guide**: See [GMAIL_PUSH_SETUP.md](./GMAIL_PUSH_SETUP.md) for complete instructions
+5. **Start the webhook server (for real-time processing)**
 
-6. **Set up GitHub Actions:**
-
-   - Push this repository to GitHub
-   - Go to your repository Settings → Secrets and variables → Actions
-   - Add these repository secrets:
-     - `EMAIL` - Your amenity website email
-     - `PASSWORD` - Your amenity website password
-     - `GMAIL_SMTP_USER` - Your Gmail address
-     - `GMAIL_SMTP_PASSWORD` - Your Gmail app-specific password
-     - `NOTIFICATION_EMAIL` - Email to receive notifications
-     - `GMAIL_CLIENT_ID` - Your Gmail API client ID
-     - `GMAIL_CLIENT_SECRET` - Your Gmail API client secret
-     - `GMAIL_REFRESH_TOKEN` - Your Gmail API refresh token
-
-7. **Optional configuration:**
-   You can customize these settings in your `.env` file:
-
-   ```env
-   # Run browser in headless mode - default: true
-   HEADLESS_MODE=true
-
-   # Amenity URL (if different from default)
-   AMENITY_URL=https://www.avalonaccess.com/Information/Information/AmenityReservation?amenityKey=dd5c4252-e044-4012-a1e3-ec2e1a8cdddf
+   ```bash
+   pnpm start
+   # -> node src/scripts/start-webhook.js
    ```
+
+6. **Optional: GitHub Actions**
+
+   If you use GitHub Actions for scheduled checking, configure repository secrets to match your `.env` values (EMAIL/PASSWORD, Gmail credentials, Resend API key, etc.) and have the workflow call either:
+
+   - `pnpm check`, or
+   - the deployed API route (`POST /api/check-availability`).
+
+---
 
 ## Usage
 
-### Automated Scheduling (GitHub Actions)
+### Local Commands
 
-The tool automatically runs every 3 hours via GitHub Actions. You can also trigger it manually:
+- **One-off availability check for default user**
 
-1. Go to your GitHub repository
-2. Click on "Actions" tab
-3. Select "Court Availability Checker" workflow
-4. Click "Run workflow" button
+  ```bash
+  pnpm check
+  # or, for a specific user ID (from config.users):
+  node src/scripts/check-now.js 2
+  ```
 
-### Run a single check locally:
+- **Run booking + manual trigger processing once**
 
-```bash
-pnpm check
-# or
-node check-now.js
-```
+  ```bash
+  pnpm book
+  # -> node src/scripts/check-bookings.js
+  ```
 
-## Complete Step-by-Step Process
+- **Poll inbox without push (debug / backup)**
 
-### Phase 1: Availability Checking (Every 2 Hours)
+  ```bash
+  node src/scripts/poll-emails.js
+  ```
 
-#### 1. **GitHub Actions Trigger**
+### Webhook / HTTP Endpoints
 
-- **Schedule**: Cron job runs every 2 hours (`0 */2 * * *`)
-- **Environment**: Ubuntu with Node.js 18 and Chrome
-- **Execution**: Runs `src/scripts/check-now.js`
+When `pnpm start` is running:
 
-#### 2. **Reservation Checker Service**
+- `GET /health` – check server and process health.
+- `POST /gmail/webhook` – Gmail push entrypoint (target of your Pub/Sub push).
+- `POST /gmail/check-bookings` – manual run of the booking handler.
+- `POST /gmail/check-availability` – manual availability check (optionally per user).
+- `POST /gmail/poll` or `/gmail/process-emails` – polling-style email processing.
+- `POST /gmail/test-smtp` – test/diagnose email transport.
 
-- **Browser Launch**: Puppeteer starts headless Chrome with optimized settings
-- **Website Navigation**: Goes to amenity website
-- **Authentication**: Logs in using stored credentials with multiple selector strategies
-- **Data Collection**: Parses HTML tables to extract reservation data
-- **Pagination**: Clicks "Show More" buttons to load all available reservations
-- **Analysis**: Generates time slots (10 AM - 10 PM) and compares with booked slots
+### API Route (Serverless-style)
 
-#### 3. **Smart Email Throttling**
-
-- **Timing**: Only sends emails at 2 PM and 10 PM PST
-- **Purpose**: Prevents spam while maintaining useful notifications
-- **Logging**: Always logs availability data regardless of email timing
-
-#### 4. **Gmail SMTP Service**
-
-- **Email Generation**: Creates HTML-formatted availability reports
-- **Delivery**: Sends via Gmail SMTP using app-specific password
-- **Formatting**: Professional design with responsive layout
-- **Recipients**: Delivers to configured notification emails
-
-### Phase 2: Email Booking Processing
-
-#### 1. **Gmail Push Notifications**
-
-- **Real-time Processing**: Processes booking requests immediately when emails arrive
-- **Webhook Integration**: Receives instant notifications from Gmail API
-- **Authentication**: Uses OAuth2 with refresh token management
-- **Filtering**: Identifies replies to availability emails
-- **Multi-user**: Processes emails from all configured users
-
-#### 2. **Email Parser Intelligence**
-
-- **Natural Language**: Extracts date/time from various formats
-- **Supported Formats**:
-  - **Dates**: "September 7, 2025", "Sep 7, 2025", "9/7/2025", "2025-09-07"
-  - **Times**: "5 - 6 PM", "5:00 - 6:00 PM", "17:00 - 18:00"
-- **Validation**: Ensures parsed data is complete and valid
-- **Error Handling**: Graceful handling of parsing failures
-
-#### 3. **Email Booking Handler**
-
-- **Orchestration**: Coordinates the complete booking process
-- **User Management**: Handles multi-user configurations
-- **Validation**: Validates booking requests before processing
-- **Error Management**: Comprehensive error handling and logging
-
-#### 4. **Booking Service**
-
-- **Browser Instance**: Launches new Puppeteer browser for booking
-- **Authentication**: Logs into amenity website
-- **Form Navigation**: Goes to booking form
-- **Data Entry**: Fills date and time fields automatically
-- **Calendar Interaction**: Handles date picker widgets
-- **Submission**: Submits booking form and detects results
-
-#### 5. **Confirmation System**
-
-- **Success Notifications**: Sends confirmation emails for successful bookings
-- **Error Notifications**: Sends error emails for failed attempts
-- **Email Management**: Marks processed emails as read
-- **Logging**: Records all booking attempts and results
-
-## How It Works - Technical Flow
-
-### Availability Checking Process
-
-1. **Browser Automation**: Puppeteer launches a headless Chrome browser
-2. **Login**: Automatically logs into amenity website using stored credentials
-3. **HTML Parsing**: Extracts reservation data from complex table structures
-4. **Pagination**: Clicks "Show More" buttons to load all available reservations
-5. **Data Analysis**: Compares all possible time slots (10 AM - 10 PM) against booked slots
-6. **Email Report**: Sends formatted availability report (only at scheduled times)
-
-### Email Booking Process
-
-1. **Gmail Monitoring**: Checks for replies to availability emails every 5 minutes
-2. **Email Parsing**: Extracts date and time from natural language responses
-3. **Booking Automation**: Uses Puppeteer to navigate booking form and submit
-4. **Confirmation**: Sends success/error emails based on booking results
-
-### Technical Architecture
-
-```
-GitHub Actions (Every 2hrs) → Puppeteer → Amenity Site → HTML Parsing → Gmail SMTP → Email Report
-                                                                              ↓
-User Reply → Gmail API → Email Parser → Booking Service → Puppeteer → Gmail SMTP → Confirmation
-```
-
-## Schedule Configuration
-
-The GitHub Actions workflow runs every 2 hours by default. To change the schedule, edit `.github/workflows/court-checker.yml`:
-
-```yaml
-schedule:
-  - cron: "0 */2 * * *" # Every 2 hours (current)
-  - cron: "0 */1 * * *" # Every hour
-  - cron: "0 12,15,18,21 * * *" # At 12pm, 3pm, 6pm, and 9pm
-  - cron: "*/30 * * * *" # Every 30 minutes
-```
-
-**Smart Email Throttling**: Emails are only sent at 2 PM and 10 PM PST to avoid spam while maintaining useful notifications.
-
-**Note**: GitHub Actions has a minimum interval of 5 minutes for scheduled workflows.
-
-## Troubleshooting
-
-- **Login fails**: Verify your credentials in GitHub repository secrets
-- **No dates available**: The calendar might not have any selectable dates
-- **GitHub Actions failing**: Check the Actions tab for error logs
-- **Email not sending**: Verify your Gmail SMTP credentials and notification email in repository secrets
-
-## Notes
-
-- The tool generates time slots from 10 AM to 10 PM by default
-- You may need to adjust the `generateTimeSlots()` function based on actual amenity hours
-- Email notifications are sent when available slots are found
-- GitHub Actions provides 2,000 free minutes per month for public repositories
-
-## Usage Examples
-
-### Checking Availability
-
-```bash
-# Run availability check locally
-pnpm check
-
-# Check for booking requests
-pnpm book
-```
+- `POST /api/check-availability`
+  - Body: none (current implementation ignores request body).
+  - Response:
+    - `200` with `{ success, totalAvailableSlots, checkedAt }` when successful.
+    - `503` with `fallbackMode: true` when Chrome cannot start due to resource constraints.
 
 ### Booking via Email
 
-1. **Receive availability email** with available time slots
-2. **Reply with booking request**:
-   ```
+1. Receive an availability email with open time slots.
+2. Send a booking request email (either as reply or direct email) such as:
+
+   ```text
    September 7, 2025
    5 - 6 PM
    ```
-3. **System automatically books** the requested slot
-4. **Receive confirmation email** with booking details
 
-### Supported Email Formats
+3. The system:
+   - Parses the date/time.
+   - Logs into the amenity site and attempts the booking.
+   - Sends a confirmation or error email back.
 
-- **Dates**:
-  - "Sunday September 7, 2025" (full format with day of week)
-  - "Sunday 9/7/2025" (numeric with day of week)
-  - "Sunday 9/7" (numeric with day of week, no year)
-  - "Sunday Sept 7" (abbreviated month with day of week, no year)
-  - "September 7, 2025" (traditional format)
-  - "Sep 7, 2025" (abbreviated month)
-  - "9/7/2025" (numeric format)
-  - "2025-09-07" (ISO format)
-- **Times**: "5 - 6 PM", "5:00 - 6:00 PM", "17:00 - 18:00"
+### Manual “Check Now” via Email
 
-## System Components
+- Send an email to the monitored Gmail inbox with a short subject/body like:
 
-### Core Files
+  ```text
+  Subject: check
+  Body: check availability
+  ```
 
-- `src/services/reservationChecker.js` - Main availability checking logic
-- `src/services/bookingService.js` - Automated booking functionality
-- `src/emailParser.js` - Gmail API integration and email parsing
-- `src/emailBookingHandler.js` - Orchestrates the booking process
-- `src/config.js` - Configuration management
+- The system:
+  - Treats this as a manual trigger.
+  - Runs a full availability check (subject to cooldown).
+  - Emails the report back to the relevant user.
 
-### Email Templates
+---
 
-- `src/email-templates/availabilities.js` - Availability report templates
-- `src/email-templates/booking.js` - Booking confirmation templates
+## Troubleshooting
 
-### Scripts
+- **Login fails**
+  - Verify amenity credentials (`EMAIL`, `PASSWORD` or `USER*_EMAIL`, `USER*_PASSWORD`).
+  - Check selector logic in `ReservationChecker.login()` if the site markup has changed.
 
-- `src/scripts/check-now.js` - Entry point for availability checking
-- `src/scripts/setup-gmail-auth.js` - Gmail API setup helper
-- `check-bookings.js` - Entry point for booking processing
+- **No tables / no availability data**
+  - See logs around “reservation table” selectors and CI/cloud loading hacks in `ReservationChecker`.
+  - Ensure the amenity URL is correct and not behind additional auth or captchas.
+
+- **Emails not sending**
+  - Confirm `RESEND_API_KEY` is valid and `SEND_EMAIL=true`.
+  - For SMTP-based flows, verify `GMAIL_SMTP_USER` and `GMAIL_SMTP_PASSWORD`.
+  - Check logs from `EmailService` / `ResendEmailService`.
+
+- **Gmail API / push issues**
+  - Run `pnpm run debug-webhook` to verify:
+    - Gmail API connectivity.
+    - Push watch status.
+    - Email parser behavior.
+    - Webhook health.
+  - For invalid_grant / token issues, re-run `pnpm run setup-gmail`.
+
+- **Chrome / Playwright fails to launch (EAGAIN, Resource temporarily unavailable, Target closed)**
+  - The system will often fall back and/or report `fallbackMode: true`.
+  - On constrained hosts, you may need to:
+    - Reduce competing processes.
+    - Increase memory/CPU.
+    - Rely more on Browserless/cloud Chrome if configured.
+
+---
+
+## Key Source Files (Quick Map)
+
+- **Availability**
+  - `src/services/reservationChecker.js` – main availability logic.
+  - `src/email-templates/availabilities.js` – availability email HTML.
+
+- **Booking**
+  - `src/services/bookingService.js` – booking automation.
+  - `src/email-templates/booking.js` – booking confirmation templates (if present).
+
+- **Email + Gmail**
+  - `src/services/emailService.js` – unified email abstraction.
+  - `src/services/resendEmailService.js` – Resend integration.
+  - `src/services/gmailSmtpService.js` – Gmail SMTP integration (legacy/optional).
+  - `src/emailParser.js` – Gmail API + booking/manual trigger parsing.
+  - `src/emailBookingHandler.js` – orchestrator for email-driven behavior.
+
+- **Webhook & Scripts**
+  - `src/webhook/gmailWebhook.js` – Express webhook + debug endpoints.
+  - `src/scripts/check-now.js` – one-off availability.
+  - `src/scripts/check-bookings.js` – process booking/manual emails.
+  - `src/scripts/start-webhook.js` – start webhook server.
+  - `src/scripts/setup-gmail-auth.js` – OAuth setup helper.
+  - `src/scripts/setup-gmail-push.js`, `src/scripts/renew-gmail-push.js` – push watch management.
+  - `src/scripts/debug-gmail-webhook.js` – end-to-end Gmail/webhook diagnostics.
+
+For a deeper architectural description (sequence diagrams, flow breakdowns), see `SYSTEM_ARCHITECTURE.md`.
