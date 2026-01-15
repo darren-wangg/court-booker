@@ -5,8 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import ReservationChecker from '../../../../../src/services/reservationChecker';
-import { saveAvailabilitySnapshot } from '../../../../../src/utils/supabaseClient';
+import { ReservationChecker, saveAvailabilitySnapshot } from '@court-booker/shared';
 
 export async function POST(request: NextRequest) {
   try {

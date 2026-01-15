@@ -1,10 +1,10 @@
 # Court Booker
 
-Automated amenity reservation system with availability checking and booking automation - **100% serverless!**
+Automated amenity reservation system with availability checking and booking automation.
 
 ## 🚀 Features
 
-- **Automated Availability Checking**: Runs 4x daily via GitHub Actions to check court availability for the next 7 days
+- **Automated Availability Checking**: Runs 5x daily via GitHub Actions to check court availability for the next 7 days
 - **Web Dashboard**: Modern Next.js frontend to view availability and trigger bookings
 - **Automated Booking**: Browser automation via Browserless.io cloud service
 - **Data Storage**: Supabase database to store availability snapshots and history
@@ -16,7 +16,7 @@ Automated amenity reservation system with availability checking and booking auto
 
 ### Data Flow
 
-1. **GitHub Actions** (scheduled 4x daily) → Runs `check-now.ts` script
+1. **GitHub Actions** (scheduled 5x daily) → Runs `check-now.ts` script
 2. **Availability Check** → Connects to Browserless.io cloud browser → Scrapes amenity website
 3. **Data Storage** → Saves results to Supabase `availability_snapshots` table
 4. **Web Frontend** → Next.js app fetches latest data from Supabase
@@ -63,15 +63,13 @@ Quick overview:
 
 ### 3. GitHub Actions
 - Add secrets: `BROWSERLESS_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, user credentials
-- Workflow runs automatically 4x daily
+- Workflow runs automatically 5x daily
 
 ### 4. Vercel Deployment
 - Import GitHub repo
 - Set root directory to `web`
 - Add environment variables (including `BROWSERLESS_TOKEN`)
-- Deploy!
-
-**Total time: ~30 minutes**
+- Deploy
 
 ---
 
@@ -233,26 +231,6 @@ court-booker/
 
 ---
 
-## 💰 Cost Breakdown
-
-### Free Tier (Testing)
-- Supabase: Free (up to 500MB)
-- GitHub Actions: Free (2,000 minutes/month)
-- **Browserless.io: Free (6 hours/month)** 🎉
-- Vercel: Free (Hobby plan)
-- **Total: $0/month** ✨
-
-### Production (Light Use)
-- Supabase: Free or $25/mo (Pro)
-- GitHub Actions: Free
-- **Browserless.io: $9/mo (100 hours)** 🚀
-- Vercel: Free or $20/mo (Pro)
-- **Total: $9-54/month**
-
-**Much simpler and more reliable than self-hosted Chrome!**
-
----
-
 ## 📚 Documentation
 
 - **[DEPLOYMENT_SIMPLE.md](./DEPLOYMENT_SIMPLE.md)** - Complete serverless deployment guide
@@ -261,47 +239,3 @@ court-booker/
 - **[supabase-schema.sql](./supabase-schema.sql)** - Database schema
 
 ---
-
-## 🔄 Migrating from DigitalOcean?
-
-If you previously used the DigitalOcean worker setup:
-
-1. Sign up for Browserless.io
-2. Update Vercel env vars (add `BROWSERLESS_TOKEN`, remove `WORKER_URL`)
-3. Update GitHub Actions secrets (add `BROWSERLESS_TOKEN`)
-4. Pull latest code
-5. Destroy DigitalOcean droplet
-
-**See [MIGRATION_FROM_DIGITALOCEAN.md](./MIGRATION_FROM_DIGITALOCEAN.md) for detailed steps.**
-
----
-
-## ⚠️ Disclaimer
-
-This tool automates interaction with amenity booking websites for personal use only.
-- Use responsibly and respect rate limits
-- Don't abuse the service
-- Respect the amenity provider's terms of service
-- Intended for authorized users only
-
----
-
-## 🎯 What's New (v2.0 - Serverless)
-
-**Major improvements:**
-- ✅ **Removed DigitalOcean dependency** - No more server management!
-- ✅ **Added Browserless.io** - Cloud browser via WebSocket
-- ✅ **Direct service calls** - Next.js API routes call services directly
-- ✅ **Simpler deployment** - 3 steps instead of 4
-- ✅ **Better error handling** - Improved logging
-- ✅ **TypeScript API routes** - Better type safety
-- ✅ **Comprehensive docs** - Multiple deployment guides
-
-**Deprecated:**
-- ❌ `worker-server.ts` (Express API on DigitalOcean)
-- ❌ `WORKER_URL` and `WORKER_SECRET` env vars
-- ❌ SSH/PM2 server management
-
----
-
-Made with ❤️ for automated court booking

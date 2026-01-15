@@ -2,9 +2,10 @@ name: Court Availability Checker
 
 on:
   schedule:
-    # Run 4 times daily: 8 AM, 12 PM, 4 PM, 8 PM PST
-    # Converted to UTC (PST is UTC-8, PDT is UTC-7)
-    - cron: "0 15,19,23,3 * * *"  # 7 AM, 11 AM, 3 PM, 7 PM PST (15, 19, 23, 3 UTC)
+    # Run every 3 hours from 9 AM to 12 AM (midnight) PST
+    # 9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST
+    # Converted to UTC (PST is UTC-8): 17:00, 20:00, 23:00, 02:00, 05:00, 08:00 UTC
+    - cron: "0 17,20,23,2,5,8 * * *"
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -28,8 +29,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install TypeScript
-        run: pnpm add -D typescript ts-node @types/node
+      - name: Build shared package
+        run: pnpm --filter @court-booker/shared build
 
       - name: Install system dependencies
         run: |
@@ -59,37 +60,37 @@ jobs:
 
       - name: Run court availability check
         env:
+          # Browserless.io (cloud browser automation)
+          BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
+
           # User credentials (multi-user format)
           USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
           USER1_PASSWORD: ${{ secrets.USER1_PASSWORD }}
-          USER1_NOTIFICATION_EMAIL: ${{ secrets.USER1_NOTIFICATION_EMAIL }}
 
           USER2_EMAIL: ${{ secrets.USER2_EMAIL }}
           USER2_PASSWORD: ${{ secrets.USER2_PASSWORD }}
-          USER2_NOTIFICATION_EMAIL: ${{ secrets.USER2_NOTIFICATION_EMAIL }}
 
           USER3_EMAIL: ${{ secrets.USER3_EMAIL }}
           USER3_PASSWORD: ${{ secrets.USER3_PASSWORD }}
-          USER3_NOTIFICATION_EMAIL: ${{ secrets.USER3_NOTIFICATION_EMAIL }}
 
           USER4_EMAIL: ${{ secrets.USER4_EMAIL }}
           USER4_PASSWORD: ${{ secrets.USER4_PASSWORD }}
-          USER4_NOTIFICATION_EMAIL: ${{ secrets.USER4_NOTIFICATION_EMAIL }}
 
           # Legacy single user format (for backward compatibility)
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
-          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
 
           # Supabase configuration
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
+          # Optional: Amenity URL override
+          AMENITY_URL: ${{ secrets.AMENITY_URL }}
+
           # Runtime configuration
           HEADLESS_MODE: true
           GITHUB_ACTIONS: true
           DISPLAY: :99
-          AMENITY_URL: ${{ secrets.AMENITY_URL }}
         run: pnpm check
 
       - name: Upload debugging artifacts (if check fails)

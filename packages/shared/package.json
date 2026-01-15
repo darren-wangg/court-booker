@@ -1,0 +1,30 @@
+{
+  "name": "@court-booker/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./services/*": "./dist/services/*.js",
+    "./utils/*": "./dist/utils/*.js",
+    "./config": "./dist/config.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.2.2",
+    "playwright": "^1.40.0",
+    "puppeteer": "^24.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/cheerio": "^0.22.35",
+    "typescript": "^5.3.3"
+  }
+}

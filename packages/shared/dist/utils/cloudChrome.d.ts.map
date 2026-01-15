@@ -1,0 +1,1 @@
+{"version":3,"file":"cloudChrome.d.ts","sourceRoot":"","sources":["../../utils/cloudChrome.ts"],"names":[],"mappings":"AAAA,OAAkB,EAAE,OAAO,EAAE,aAAa,EAAE,MAAM,WAAW,CAAC;AAE9D;;;GAGG;AACH,qBAAa,WAAW;IACtB,MAAM,CAAC,yBAAyB,IAAI,aAAa;WAgHpC,iBAAiB,CAAC,UAAU,GAAE,MAAU,GAAG,OAAO,CAAC,OAAO,GAAG,IAAI,CAAC;CAmFhF"}

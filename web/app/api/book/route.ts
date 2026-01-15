@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import BookingService from '../../../src/services/bookingService';
+import { BookingService } from '@court-booker/shared';
 
 interface TimeSlot {
   startHour: number;
