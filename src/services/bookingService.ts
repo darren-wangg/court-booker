@@ -1,12 +1,30 @@
-const puppeteer = require("puppeteer");
-const config = require('../config');
-const CloudChrome = require('../utils/cloudChrome');
+import puppeteer, { Browser, Page } from "puppeteer";
+import { getUser, User, amenityUrl } from '../config';
+import { CloudChrome } from '../utils/cloudChrome';
 
-class BookingService {
-  constructor(userId = null) {
-    this.browser = null;
-    this.page = null;
-    this.user = config.getUser(userId);
+interface TimeSlot {
+  startHour: number;
+  endHour: number;
+  formatted: string;
+}
+
+interface BookingRequest {
+  date: Date;
+  time: TimeSlot;
+  formatted: {
+    date: string;
+    time: string;
+  };
+}
+
+export default class BookingService {
+  private browser: Browser | null = null;
+  private page: any = null;
+  private user: User | null;
+  private resourceConstraint: boolean = false;
+
+  constructor(userId: number | null = null) {
+    this.user = getUser(userId);
   }
 
   async initialize() {
@@ -99,7 +117,7 @@ class BookingService {
         throw new Error('Browser page not available - likely due to resource constraints');
       }
       
-      await this.page.goto(config.amenityUrl, { waitUntil: "networkidle2" });
+      await this.page.goto(amenityUrl, { waitUntil: "networkidle2" });
 
       // Wait for login form
       await this.page.waitForSelector(
@@ -108,10 +126,10 @@ class BookingService {
       );
 
       const emailSelector = await this.findEmailField();
-      await this.page.type(emailSelector, this.user.email);
+      await this.page.type(emailSelector, this.user!.email);
 
       const passwordSelector = await this.findPasswordField();
-      await this.page.type(passwordSelector, this.user.password);
+      await this.page.type(passwordSelector, this.user!.password);
 
       const submitButton = await this.findSubmitButton();
       await Promise.all([
@@ -181,7 +199,7 @@ class BookingService {
   /**
    * Navigate to the booking page for a specific date
    */
-  async navigateToBookingPage(targetDate) {
+  async navigateToBookingPage(targetDate: Date): Promise<boolean> {
     try {
       console.log(`📅 Navigating to booking page for ${targetDate.toLocaleDateString()}`);
       
@@ -247,7 +265,7 @@ class BookingService {
   /**
    * Select start and end times from dropdowns
    */
-  async selectTimeSlot(targetTime) {
+  async selectTimeSlot(targetTime: TimeSlot): Promise<boolean> {
     try {
       console.log(`⏰ Setting time slot: ${targetTime.formatted}`);
       
@@ -284,7 +302,7 @@ class BookingService {
   /**
    * Convert 24-hour format to 12-hour format for dropdown selection
    */
-  convertTo12HourFormat(hour24) {
+  convertTo12HourFormat(hour24: number): string {
     if (hour24 === 0) return '12:00 AM';
     if (hour24 < 12) return `${hour24}:00 AM`;
     if (hour24 === 12) return '12:00 PM';
@@ -354,7 +372,7 @@ class BookingService {
   /**
    * Main booking method
    */
-  async bookTimeSlot(bookingRequest) {
+  async bookTimeSlot(bookingRequest: BookingRequest): Promise<any> {
     try {
       console.log(`🏀 Starting booking process for ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
       
@@ -400,5 +418,3 @@ class BookingService {
     }
   }
 }
-
-module.exports = BookingService;

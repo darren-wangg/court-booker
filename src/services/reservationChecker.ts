@@ -1,10 +1,8 @@
-const PlaywrightBrowser = require("../utils/playwrightBrowser");
-const axios = require("axios");
-const cheerio = require("cheerio");
-const EmailService = require("./emailService");
-const config = require("../config");
-const { generateEmailHTML } = require("../email-templates/availabilities");
-const CloudChrome = require("../utils/cloudChrome");
+import { PlaywrightBrowser } from "../utils/playwrightBrowser";
+import axios from "axios";
+import * as cheerio from "cheerio";
+import { getUser, User, amenityUrl } from "../config";
+import { CloudChrome } from "../utils/cloudChrome";
 
 // Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
@@ -15,12 +13,14 @@ const DEFAULT_TIMEOUT = THIRTY_SECONDS * CI_TIMEOUT_MULTIPLIER;
 const START_HOUR = 10; // 10 AM
 const END_HOUR = 22; // 10 PM
 
-class ReservationChecker {
-  constructor(userId = null) {
-    this.browser = null;
-    this.page = null;
-    this.user = config.getUser(userId);
-    this.emailService = new EmailService();
+export default class ReservationChecker {
+  private browser: any = null;
+  private page: any = null;
+  private user: User | null;
+  private resourceConstraint: boolean = false;
+
+  constructor(userId: number | null = null) {
+    this.user = getUser(userId);
   }
 
   async initialize() {
@@ -431,7 +431,7 @@ class ReservationChecker {
   // Cloud fallback for when Chrome is unavailable
   async checkAvailabilityFallback() {
     try {
-      console.log('🌐 Cloud fallback mode - monitoring email requests only');
+      console.log('🌐 Cloud fallback mode active');
       
       // Generate realistic fallback data to keep the system functional
       const next7Days = this.getNext7Days();
@@ -442,7 +442,7 @@ class ReservationChecker {
         totalSlots: this.generateTimeSlots().length,
         checkedAt: new Date().toISOString(),
         fallbackMode: true,
-        message: 'Chrome unavailable - email booking still functional'
+        message: 'Chrome unavailable - fallback mode active'
       }));
       
       return {
@@ -452,7 +452,7 @@ class ReservationChecker {
         checkedAt: new Date().toISOString(),
         fallbackMode: true,
         cloudCompatibilityMode: true,
-        message: 'Cloud fallback mode active - email booking functionality preserved'
+        message: 'Cloud fallback mode active'
       };
       
     } catch (error) {
@@ -472,7 +472,7 @@ class ReservationChecker {
         throw new Error('Browser page not available - likely due to resource constraints');
       }
       
-      await this.page.goto(config.amenityUrl, { waitUntil: "networkidle2" });
+      await this.page.goto(amenityUrl, { waitUntil: "networkidle2" });
 
       // Wait for login form
       await this.page.waitForSelector(
@@ -1115,23 +1115,18 @@ class ReservationChecker {
         
         if (fallbackResult.success) {
           console.log('✅ Fallback mode completed successfully');
-          // Send email notification about fallback mode
-          await this.sendFallbackModeNotification();
-          // Send the fallback results as a normal email report
-          await this.sendEmailReport(fallbackResult);
           return {
             success: true,
             totalAvailableSlots: fallbackResult.totalAvailableSlots,
             dates: fallbackResult.dates,
-            emailSent: true,
-            message: 'Fallback mode - email monitoring active',
+            fallbackMode: true,
+            message: 'Fallback mode active',
             fallbackMode: true,
             cloudCompatibilityMode: true,
             timestamp: new Date().toISOString()
           };
         } else {
           console.log('❌ Fallback mode failed');
-          await this.sendResourceConstraintNotification();
           return {
             success: false,
             reason: 'Fallback mode failed',
@@ -1557,10 +1552,8 @@ class ReservationChecker {
         dates: allResults,
         totalAvailableSlots: totalAvailableSlots,
         checkedAt: new Date().toISOString(),
+        success: true,
       };
-
-      // Send email notification
-      await this.sendEmailReport(results);
 
       return results;
     } catch (error) {
@@ -1571,144 +1564,6 @@ class ReservationChecker {
     }
   }
 
-  async sendFallbackModeNotification() {
-    try {
-      // Check if Gmail SMTP is configured
-      if (!config.gmailSmtpUser || !config.gmailSmtpPassword || !config.notificationEmail) {
-        console.log("Email not configured - skipping fallback mode notification");
-        return;
-      }
-
-      await this.emailService.initialize();
-
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #f39c12;">⚠️ Court Checker - Fallback Mode Active</h2>
-          
-          <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f39c12;">
-            <p><strong>Status:</strong> Chrome browser issues detected - using fallback mode</p>
-            <p><strong>Issue:</strong> Browser initialization failed - using email monitoring only</p>
-            <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST</p>
-          </div>
-          
-          <div style="background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="color: #155724; margin-top: 0;">✅ Service Status</h3>
-            <p>The court booking system is still monitoring for email requests and will continue to operate normally. Only the automated availability checking is temporarily limited.</p>
-          </div>
-          
-          <h3>What this means:</h3>
-          <ul>
-            <li>✅ Email booking requests are still processed</li>
-            <li>✅ Manual triggers still work</li>
-            <li>⚠️ Automated availability checking is limited</li>
-            <li>💡 Consider using GitHub Actions for availability checks</li>
-          </ul>
-          
-          <p><em>This is an automated notification from your court booking system.</em></p>
-        </div>
-      `;
-
-      const result = await this.emailService.sendEmail({
-        to: config.notificationEmail,
-        subject: "⚠️ Court Checker - Fallback Mode Active",
-        html: html,
-      });
-
-      if (result.success) {
-        console.log("✅ Fallback mode notification sent successfully");
-      } else {
-        console.error("Failed to send notification:", result.error);
-      }
-    } catch (error) {
-      console.error("Error sending fallback mode notification:", error);
-    }
-  }
-
-  async sendResourceConstraintNotification() {
-    try {
-      // Check if Gmail SMTP is configured
-      if (!config.gmailSmtpUser || !config.gmailSmtpPassword || !config.notificationEmail) {
-        console.log("Email not configured - skipping resource constraint notification");
-        return;
-      }
-
-      await this.emailService.initialize();
-
-      const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #e74c3c;">🚨 System Resource Constraint Detected</h2>
-          
-          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>Issue:</strong> Chrome browser cannot launch due to system resource limits</p>
-            <p><strong>Error:</strong> Resource temporarily unavailable (pthread_create/fork failures)</p>
-            <p><strong>Time:</strong> ${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PST</p>
-          </div>
-          
-          <h3>Possible Solutions:</h3>
-          <ul>
-            <li>Restart the application</li>
-            <li>Reduce concurrent processes</li>
-            <li>Implement external scraping service</li>
-            <li>Switch to GitHub Actions for availability checks</li>
-          </ul>
-          
-          <p><em>This is an automated notification from your court booking system.</em></p>
-        </div>
-      `;
-
-      const result = await this.emailService.sendEmail({
-        to: config.notificationEmail,
-        subject: "🚨 Court Checker - System Resource Constraint",
-        html: html,
-      });
-
-      if (result.success) {
-        console.log("✅ Resource constraint notification sent successfully");
-      } else {
-        console.error("Failed to send notification:", result.error);
-      }
-    } catch (error) {
-      console.error("Error sending resource constraint notification:", error);
-    }
-  }
-
-  async sendEmailReport(results) {
-    try {
-      // Check if email sending is enabled via configuration
-      const shouldSendEmail = config.sendEmail;
-      if (!shouldSendEmail) {
-        console.log("📧 Email sending disabled for this run - data collected but no notification sent");
-        return;
-      }
-
-      // Check if Gmail SMTP is configured
-      if (!config.gmailSmtpUser || !config.gmailSmtpPassword) {
-        console.log("Gmail SMTP not configured - skipping email notification");
-        return;
-      }
-
-      if (!config.notificationEmail) {
-        console.log("Notification email not configured - skipping email notification");
-        return;
-      }
-
-      await this.emailService.initialize();
-
-      const result = await this.emailService.sendEmail({
-        to: config.notificationEmail,
-        subject: "🏀 Avalon Court Availability 🏀",
-        html: generateEmailHTML(results),
-      });
-
-      if (result.success) {
-        console.log("✅ Email notification sent successfully");
-      } else {
-        console.error("Failed to send email:", result.error);
-      }
-    } catch (error) {
-      console.error("Error sending email:", error);
-    }
-  }
 
   async cleanup() {
     try {
@@ -1750,4 +1605,3 @@ class ReservationChecker {
   }
 }
 
-module.exports = ReservationChecker;

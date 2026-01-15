@@ -2,10 +2,9 @@ name: Court Availability Checker
 
 on:
   schedule:
-    # Only run at 12 PM PST (20:00 UTC winter / 19:00 UTC summer)
-    - cron: "0 19,20 * * *"
-    # Only run at 8 PM PST (04:00 UTC winter / 03:00 UTC summer) 
-    - cron: "0 3,4 * * *"
+    # Run 4 times daily: 8 AM, 12 PM, 4 PM, 8 PM PST
+    # Converted to UTC (PST is UTC-8, PDT is UTC-7)
+    - cron: "0 15,19,23,3 * * *"  # 7 AM, 11 AM, 3 PM, 7 PM PST (15, 19, 23, 3 UTC)
   workflow_dispatch: # Allow manual triggering
 
 jobs:
@@ -28,6 +27,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Install TypeScript
+        run: pnpm add -D typescript ts-node @types/node
 
       - name: Install system dependencies
         run: |
@@ -55,21 +57,9 @@ jobs:
           export DISPLAY=:99
           Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
 
-      - name: Set email sending to true
-        id: email-check
-        run: |
-          # Always send email since we only run at email times now
-          echo "should_send=true" >> $GITHUB_OUTPUT
-          echo "📧 Email will be sent (scheduled run)"
-
       - name: Run court availability check
         env:
-          # Legacy single user format (for backward compatibility)
-          EMAIL: ${{ secrets.EMAIL }}
-          PASSWORD: ${{ secrets.PASSWORD }}
-          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
-
-          # Multi-user format (preferred)
+          # User credentials (multi-user format)
           USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
           USER1_PASSWORD: ${{ secrets.USER1_PASSWORD }}
           USER1_NOTIFICATION_EMAIL: ${{ secrets.USER1_NOTIFICATION_EMAIL }}
@@ -86,26 +76,21 @@ jobs:
           USER4_PASSWORD: ${{ secrets.USER4_PASSWORD }}
           USER4_NOTIFICATION_EMAIL: ${{ secrets.USER4_NOTIFICATION_EMAIL }}
 
-          # Gmail SMTP configuration
-          GMAIL_SMTP_USER: ${{ secrets.GMAIL_SMTP_USER }}
-          GMAIL_SMTP_PASSWORD: ${{ secrets.GMAIL_SMTP_PASSWORD }}
+          # Legacy single user format (for backward compatibility)
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL }}
 
-          # Gmail API configuration
-          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
-          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
-          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
-          GMAIL_REDIRECT_URI: http://localhost:3000/oauth2callback
-
-          # Gmail Push Notifications
-          GMAIL_PROJECT_ID: ${{ secrets.GMAIL_PROJECT_ID }}
-          GMAIL_TOPIC_NAME: ${{ secrets.GMAIL_TOPIC_NAME }}
-          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          # Supabase configuration
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
           # Runtime configuration
           HEADLESS_MODE: true
-          SEND_EMAIL: ${{ steps.email-check.outputs.should_send }}
+          GITHUB_ACTIONS: true
           DISPLAY: :99
-        run: node src/scripts/check-now.js
+          AMENITY_URL: ${{ secrets.AMENITY_URL }}
+        run: pnpm check
 
       - name: Upload debugging artifacts (if check fails)
         if: failure()

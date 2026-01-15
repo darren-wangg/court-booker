@@ -1,11 +1,11 @@
-const puppeteer = require("puppeteer");
+import puppeteer, { Browser, LaunchOptions } from 'puppeteer';
 
 /**
  * Cloud-optimized Chrome launch configuration
  * Handles Protocol errors and resource constraints in cloud environments
  */
-class CloudChrome {
-  static getOptimizedLaunchOptions() {
+export class CloudChrome {
+  static getOptimizedLaunchOptions(): LaunchOptions {
     return {
       headless: true,
       defaultViewport: null,
@@ -117,11 +117,11 @@ class CloudChrome {
     };
   }
 
-  static async launchWithRetries(maxRetries = 3) {
+  static async launchWithRetries(maxRetries: number = 3): Promise<Browser | null> {
     console.log('🌐 Launching Chrome with cloud optimizations...');
     
     const launchOptions = this.getOptimizedLaunchOptions();
-    let lastError = null;
+    let lastError: Error | null = null;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -137,9 +137,9 @@ class CloudChrome {
           await new Promise(resolve => setTimeout(resolve, delay));
           
           // Force garbage collection
-          if (global.gc) {
+          if ((global as any).gc) {
             console.log('🗑️ Running garbage collection...');
-            global.gc();
+            (global as any).gc();
           }
         }
         
@@ -156,18 +156,18 @@ class CloudChrome {
         return browser;
         
       } catch (error) {
-        lastError = error;
-        console.log(`❌ Chrome launch failed (attempt ${attempt}): ${error.message}`);
+        lastError = error as Error;
+        console.log(`❌ Chrome launch failed (attempt ${attempt}): ${lastError.message}`);
         
         // Special handling for protocol errors
-        if (error.message.includes('Protocol error') || 
-            error.message.includes('Target closed') ||
-            error.message.includes('setDiscoverTargets')) {
+        if (lastError.message.includes('Protocol error') || 
+            lastError.message.includes('Target closed') ||
+            lastError.message.includes('setDiscoverTargets')) {
           console.log('🔧 Protocol error detected - Chrome closing too quickly');
         }
         
         // Try with additional restrictive settings on later attempts
-        if (attempt > 1) {
+        if (attempt > 1 && launchOptions.args) {
           launchOptions.args.push(
             '--disable-features=VizHitTestSurfaceLayer',
             '--disable-partial-raster',
@@ -201,5 +201,3 @@ class CloudChrome {
     throw lastError || new Error('Chrome launch failed for unknown reasons');
   }
 }
-
-module.exports = CloudChrome;
