@@ -1,7 +1,7 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Court Booker - Availability Dashboard',
+  title: '🏀 Court Booker',
   description: 'Check and book court reservations',
 }
 

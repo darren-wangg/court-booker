@@ -1,11 +1,16 @@
-// Only load .env in non-CI and non-Next.js environments
+// Only load .env in standalone script environments (not Next.js, not CI)
 // Next.js/Vercel handle environment variables natively
-if (!process.env.CI && !process.env.GITHUB_ACTIONS && !process.env.NEXT_RUNTIME) {
+const isNextJS = typeof window !== 'undefined' || process.env.NEXT_RUNTIME || process.env.__NEXT_PROCESSED_ENV;
+const isCI = process.env.CI || process.env.GITHUB_ACTIONS;
+
+if (!isNextJS && !isCI) {
   try {
-    require('dotenv').config();
+    const path = require('path');
+    // Try to load from project root (2 levels up from packages/shared)
+    require('dotenv').config({ path: path.join(__dirname, '../../.env') });
   } catch (error) {
-    // dotenv not available (e.g., in Next.js build), skip silently
-    // Environment variables will be provided by the platform (Vercel, etc.)
+    // dotenv not available or .env not found, skip silently
+    // Environment variables will be provided by the platform
   }
 }
 

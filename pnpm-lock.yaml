@@ -11,6 +11,9 @@ importers:
       '@court-booker/shared':
         specifier: workspace:*
         version: link:packages/shared
+      dotenv:
+        specifier: ^17.2.2
+        version: 17.2.2
     devDependencies:
       ts-node:
         specifier: ^10.9.2

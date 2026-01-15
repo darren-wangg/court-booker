@@ -1,3 +1,8 @@
+// Load environment variables first
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
 import { ReservationChecker, getUser, saveAvailabilitySnapshot } from '@court-booker/shared';
 
 // Get user ID from command line argument or use first user

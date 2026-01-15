@@ -9,3 +9,4 @@ vercel.json
 gmail-service-account.json
 .next/
 web/.next/
+.env.local

@@ -10,7 +10,8 @@
     "build:all": "pnpm -r build"
   },
   "dependencies": {
-    "@court-booker/shared": "workspace:*"
+    "@court-booker/shared": "workspace:*",
+    "dotenv": "^17.2.2"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",

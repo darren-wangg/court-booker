@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createBrowserClient } from '@/lib/supabase'
 import Spinner from './components/Spinner'
 
 export default function Home() {
@@ -9,15 +8,16 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState(null)
+  const [basketballAnimation, setBasketballAnimation] = useState(null)
 
   const fetchLatestAvailability = async () => {
     try {
       setLoading(true)
       setError(null)
-      
+
       const response = await fetch('/api/availability/latest')
       const result = await response.json()
-      
+
       if (result.success) {
         setAvailability(result.data)
       } else {
@@ -34,18 +34,19 @@ export default function Home() {
     try {
       setRefreshing(true)
       setError(null)
-      
+
+      triggerBasketballAnimation('bounce')
+
       const response = await fetch('/api/availability/refresh', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
       })
-      
+
       const result = await response.json()
-      
+
       if (result.success) {
-        // Wait a moment then fetch latest
         setTimeout(() => {
           fetchLatestAvailability()
         }, 2000)
@@ -60,6 +61,8 @@ export default function Home() {
   }
 
   const handleBook = async (date, timeSlot) => {
+    triggerBasketballAnimation('shoot')
+
     try {
       const response = await fetch('/api/book', {
         method: 'POST',
@@ -71,17 +74,22 @@ export default function Home() {
           time: timeSlot,
         }),
       })
-      
+
       const result = await response.json()
-      
+
       if (result.success) {
-        alert(`Booking requested for ${date} at ${timeSlot}`)
+        alert(`🏀 Booking requested for ${date} at ${timeSlot}`)
       } else {
-        alert(`Booking failed: ${result.error}`)
+        alert(`❌ Booking failed: ${result.error}`)
       }
     } catch (err) {
-      alert(`Error: ${err.message}`)
+      alert(`❌ Error: ${err.message}`)
     }
+  }
+
+  const triggerBasketballAnimation = (type) => {
+    setBasketballAnimation(type)
+    setTimeout(() => setBasketballAnimation(null), 800)
   }
 
   useEffect(() => {
@@ -91,9 +99,8 @@ export default function Home() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 text-center items-center justify-center align-middle">
           <Spinner size="xl" />
-          <div className="text-xl text-gray-600">Loading availability data...</div>
         </div>
       </div>
     )
@@ -101,13 +108,13 @@ export default function Home() {
 
   if (error && !availability) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-600">
-          <p className="text-xl font-bold">Error</p>
-          <p>{error}</p>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Error</h2>
+          <p className="text-gray-700 mb-4">{error}</p>
           <button
             onClick={fetchLatestAvailability}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
           >
             Retry
           </button>
@@ -120,100 +127,95 @@ export default function Home() {
   const dates = availabilityData.dates || []
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8 flex justify-between items-center">
-          <h1 className="text-4xl font-bold">Court Availability</h1>
+    <main className="h-screen p-4 overflow-hidden bg-gray-100">
+      {/* Basketball animation */}
+      {basketballAnimation && (
+        <div
+          className={`basketball-${basketballAnimation}`}
+          style={{
+            position: 'fixed',
+            bottom: '100px',
+            left: '50%',
+            fontSize: '48px',
+            zIndex: 1000,
+            pointerEvents: 'none',
+          }}
+        >
+          🏀
+        </div>
+      )}
+
+      <div className="h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
+          <div className="text-gray-600 text-sm">
+            {availability && (
+              <span>Last checked on {new Date(availability.checked_at).toLocaleString()}</span>
+            )}
+          </div>
+          <div className="text-gray-600 text-sm">
+            ( っ'-')╮ =͟͟͞͞🏀
+          </div>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {refreshing && <Spinner size="sm" className="border-white border-t-gray-300" />}
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {refreshing ? 'Refreshing...' : '🔄️ Refresh Times 🔄️ '}
           </button>
         </div>
 
-        {availability && (
-          <div className="mb-4 text-sm text-gray-600">
-            Last checked: {new Date(availability.checked_at).toLocaleString()}
-            {availability.source && ` (${availability.source})`}
-          </div>
-        )}
-
+        {/* Error banner */}
         {error && (
-          <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 rounded">
-            {error}
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-6 mt-4 rounded">
+            <p className="text-red-700 text-sm">{error}</p>
           </div>
         )}
 
+        {/* Availability Grid */}
         {dates.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-xl text-gray-500">No availability data found</p>
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-gray-500">No availability data found</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {dates.map((dateInfo, idx) => (
-              <div key={idx} className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-2xl font-semibold mb-4">{dateInfo.date}</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-medium text-green-600 mb-2">
-                      Available ({dateInfo.available?.length || 0} slots)
-                    </h3>
-                    {dateInfo.available && dateInfo.available.length > 0 ? (
-                      <div className="space-y-2">
-                        {dateInfo.available.map((slot, slotIdx) => (
-                          <div
-                            key={slotIdx}
-                            className="flex justify-between items-center p-2 bg-green-50 rounded"
-                          >
-                            <span>{slot}</span>
-                            <button
-                              onClick={() => handleBook(dateInfo.date, slot)}
-                              className="px-4 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                            >
-                              Book
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500">No available slots</p>
-                    )}
+          <div className="flex-1 grid gap-4 p-6 overflow-hidden"
+            style={{
+              gridTemplateColumns: `repeat(${dates.filter(d => (d.available || []).length > 0).length}, 1fr)`
+            }}>
+            {dates.map((dateInfo, idx) => {
+              const availableSlots = dateInfo.available || []
+
+              if (availableSlots.length === 0) {
+                return null
+              }
+
+              return (
+                <div key={idx} className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  <div className="bg-gray-50 border-b px-4 py-3 text-center">
+                    <span className="text-sm font-semibold text-gray-900">{dateInfo.date}</span>
                   </div>
 
-                  <div>
-                    <h3 className="font-medium text-red-600 mb-2">
-                      Booked ({dateInfo.booked?.length || 0} slots)
-                    </h3>
-                    {dateInfo.booked && dateInfo.booked.length > 0 ? (
-                      <div className="space-y-2">
-                        {dateInfo.booked.map((slot, slotIdx) => (
-                          <div
-                            key={slotIdx}
-                            className="p-2 bg-red-50 rounded text-gray-600"
-                          >
-                            {slot}
-                          </div>
-                        ))}
+                  <div className="flex-1 overflow-auto p-3 space-y-2">
+                    {availableSlots.map((slot, slotIdx) => (
+                      <div
+                        key={slotIdx}
+                        className="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition"
+                      >
+                        <span className="text-sm text-gray-700">
+                          {slot}
+                        </span>
+                        <button
+                          onClick={() => handleBook(dateInfo.date, slot)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition"
+                        >
+                          Book
+                        </button>
                       </div>
-                    ) : (
-                      <p className="text-gray-500">No booked slots</p>
-                    )}
+                    ))}
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {availabilityData.totalAvailableSlots !== undefined && (
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-            <p className="text-lg font-semibold">
-              Total Available Slots: {availabilityData.totalAvailableSlots}
-            </p>
+              )
+            })}
           </div>
         )}
       </div>
