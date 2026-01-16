@@ -5,8 +5,8 @@ import QueryProvider from './providers/QueryProvider'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'Court Booker - Find & Book Available Court Times',
-  description: 'Automatically check court availability and book your favorite time slots. Real-time updates for basketball court reservations.',
+  title: `Court Booker ( っ'-')╮ =͟͟͞͞🏀`,
+  description: 'Book a reservation and get some buckets.',
   keywords: ['court booking', 'basketball', 'court reservation', 'availability checker'],
   authors: [{ name: 'Court Booker' }],
   icons: {
@@ -14,8 +14,8 @@ export const metadata: Metadata = {
     apple: '/favicon.jpg',
   },
   openGraph: {
-    title: 'Court Booker - Find & Book Available Court Times',
-    description: 'Automatically check court availability and book your favorite time slots. Real-time updates for basketball court reservations.',
+    title: `Court Booker ( っ'-')╮ =͟͟͞͞🏀`,
+    description: 'Book a reservation and get some buckets.',
     url: 'https://court-booker.vercel.app',
     siteName: 'Court Booker',
     images: [
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'Court Booker - Find & Book Available Court Times',
-    description: 'Automatically check court availability and book your favorite time slots.',
+    title: `Court Booker ( っ'-')╮ =͟͟͞͞🏀`,
+    description: 'Book a reservation and get some buckets.',
     images: ['/og-image.jpg'],
   },
   viewport: {
