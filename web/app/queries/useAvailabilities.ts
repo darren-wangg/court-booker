@@ -20,6 +20,7 @@ export interface AvailabilityData {
     checkedAt?: string;
     success?: boolean;
   };
+  dates: DateInfo[]; // Also at root level from Supabase
   checked_at: string;
   success?: boolean;
 }
