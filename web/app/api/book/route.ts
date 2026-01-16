@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`🏀 Processing booking: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
 
-    // Run booking directly via BookingService
+    // Run booking directly via BookingService (uses env variables for credentials)
     const bookingService = new BookingService(userId || null);
     const result = await bookingService.bookTimeSlot(bookingRequest);
 

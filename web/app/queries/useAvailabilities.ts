@@ -85,7 +85,11 @@ async function bookSlot(request: BookingRequest): Promise<BookingResponse> {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      date: request.date,
+      time: request.time,
+      userId: request.userId,
+    }),
   })
 
   const result: BookingResponse = await response.json()
