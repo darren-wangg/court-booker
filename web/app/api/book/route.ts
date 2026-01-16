@@ -9,6 +9,8 @@
  *   time: "5:00 PM - 6:00 PM" or { startHour: 17, endHour: 18 },
  *   userId: 1 (optional)
  * }
+ * 
+ * Updated: Jan 2026
  */
 
 import { NextRequest, NextResponse } from 'next/server';
