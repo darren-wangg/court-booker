@@ -14,6 +14,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BookingService } from '@court-booker/shared';
 
+// CORS headers for API route
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+// Handle OPTIONS preflight request
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 interface TimeSlot {
   startHour: number;
   endHour: number;
@@ -124,13 +136,13 @@ export async function POST(request: NextRequest) {
       success: result.success,
       message: result.success ? 'Booking completed successfully' : 'Booking failed',
       data: result,
-    });
+    }, { headers: corsHeaders });
 
   } catch (error: any) {
     console.error('❌ Booking failed:', error);
     return NextResponse.json(
       { error: 'Failed to process booking', details: error.message },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }
