@@ -14,7 +14,7 @@ class CloudChrome {
         return {
             headless: true,
             defaultViewport: null,
-            executablePath: undefined, // Use bundled Chrome
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // Use system Chrome if available
             args: [
                 // Core cloud environment requirements
                 "--no-sandbox",
