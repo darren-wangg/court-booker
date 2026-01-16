@@ -16,6 +16,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BookingService } from '@court-booker/shared';
 
+// Force dynamic rendering and Node.js runtime
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 interface TimeSlot {
   startHour: number;
   endHour: number;
