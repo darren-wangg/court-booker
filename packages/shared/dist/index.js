@@ -17,12 +17,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CloudChrome = exports.PlaywrightBrowser = exports.BookingService = exports.ApiReservationChecker = exports.ReservationChecker = void 0;
+exports.CloudChrome = exports.PlaywrightBrowser = exports.BookingService = exports.ReservationChecker = void 0;
 // Export services
 var reservationChecker_1 = require("./services/reservationChecker");
 Object.defineProperty(exports, "ReservationChecker", { enumerable: true, get: function () { return __importDefault(reservationChecker_1).default; } });
-var apiReservationChecker_1 = require("./services/apiReservationChecker");
-Object.defineProperty(exports, "ApiReservationChecker", { enumerable: true, get: function () { return __importDefault(apiReservationChecker_1).default; } });
 var bookingService_1 = require("./services/bookingService");
 Object.defineProperty(exports, "BookingService", { enumerable: true, get: function () { return __importDefault(bookingService_1).default; } });
 // Export utils

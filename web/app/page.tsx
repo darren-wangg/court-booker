@@ -76,7 +76,10 @@ export default function Home() {
     )
   }
 
-  const availabilityData = availability?.data || {}
+  // API returns { success: true, data: <snapshot_row> }
+  // The snapshot row has a 'data' JSONB column with the actual availability data
+  const snapshotRow = availability?.data || {}
+  const availabilityData = (snapshotRow as any).data || {}
   const dates = (availabilityData as { dates?: DateInfo[] }).dates || []
 
   return (
