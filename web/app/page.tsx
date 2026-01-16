@@ -2,101 +2,53 @@
 
 import { useState, useEffect } from 'react'
 import Spinner from './components/Spinner'
+import { useUsers } from './queries/useUsers'
+import { useAvailability, useRefreshAvailability, useBookSlot, DateInfo } from './queries/useAvailabilities'
 
 export default function Home() {
-  const [availability, setAvailability] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState(null)
-  const [basketballAnimation, setBasketballAnimation] = useState(null)
+  const [basketballAnimation, setBasketballAnimation] = useState<string | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
 
-  const fetchLatestAvailability = async () => {
-    try {
-      setLoading(true)
-      setError(null)
+  // React Query hooks
+  const { data: users, isLoading: isUsersLoading } = useUsers()
+  const { data: availability, isLoading: isAvailabilityLoading, error: availabilityError } = useAvailability(selectedUserId)
+  const refreshMutation = useRefreshAvailability()
+  const bookMutation = useBookSlot()
 
-      const response = await fetch('/api/availability/latest')
-      const result = await response.json()
-
-      if (result.success) {
-        setAvailability(result.data)
-      } else {
-        setError(result.error || 'Failed to fetch availability')
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+  // Set initial user when users are loaded
+  useEffect(() => {
+    if (users && users.length > 0 && selectedUserId === null) {
+      setSelectedUserId(users[0].id)
     }
-  }
+  }, [users, selectedUserId])
 
-  const handleRefresh = async () => {
-    try {
-      setRefreshing(true)
-      setError(null)
-
-      triggerBasketballAnimation('bounce')
-
-      const response = await fetch('/api/availability/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        setTimeout(() => {
-          fetchLatestAvailability()
-        }, 2000)
-      } else {
-        setError(result.error || 'Failed to trigger refresh')
-      }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setRefreshing(false)
-    }
-  }
-
-  const handleBook = async (date, timeSlot) => {
-    triggerBasketballAnimation('shoot')
-
-    try {
-      const response = await fetch('/api/book', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          date: date,
-          time: timeSlot,
-        }),
-      })
-
-      const result = await response.json()
-
-      if (result.success) {
-        alert(`🏀 Booking requested for ${date} at ${timeSlot}`)
-      } else {
-        alert(`❌ Booking failed: ${result.error}`)
-      }
-    } catch (err) {
-      alert(`❌ Error: ${err.message}`)
-    }
-  }
-
-  const triggerBasketballAnimation = (type) => {
+  const triggerBasketballAnimation = (type: string) => {
     setBasketballAnimation(type)
     setTimeout(() => setBasketballAnimation(null), 800)
   }
 
-  useEffect(() => {
-    fetchLatestAvailability()
-  }, [])
+  const handleRefresh = () => {
+    triggerBasketballAnimation('bounce')
+    refreshMutation.mutate(selectedUserId)
+  }
 
-  if (loading) {
+  const handleBook = (date: string, timeSlot: string) => {
+    triggerBasketballAnimation('shoot')
+    bookMutation.mutate(
+      { date, time: timeSlot, userId: selectedUserId },
+      {
+        onSuccess: () => {
+          alert(`Booking requested for ${date} at ${timeSlot}`)
+        },
+        onError: (error) => {
+          alert(`Booking failed: ${error.message}`)
+        },
+      }
+    )
+  }
+
+  // Loading state
+  if (isUsersLoading || (selectedUserId !== null && isAvailabilityLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="bg-white rounded-lg shadow-lg p-8 text-center items-center justify-center align-middle">
@@ -106,14 +58,15 @@ export default function Home() {
     )
   }
 
-  if (error && !availability) {
+  // Error state
+  if (availabilityError && !availability) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Error</h2>
-          <p className="text-gray-700 mb-4">{error}</p>
+          <p className="text-gray-700 mb-4">{availabilityError.message}</p>
           <button
-            onClick={fetchLatestAvailability}
+            onClick={handleRefresh}
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition"
           >
             Retry
@@ -124,7 +77,7 @@ export default function Home() {
   }
 
   const availabilityData = availability?.data || {}
-  const dates = availabilityData.dates || []
+  const dates = (availabilityData as { dates?: DateInfo[] }).dates || []
 
   return (
     <main className="h-screen p-4 overflow-hidden bg-gray-100">
@@ -150,25 +103,37 @@ export default function Home() {
         <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
           <div className="text-gray-600 text-sm">
             {availability && (
-              <span>Last checked on {new Date(availability.checked_at).toLocaleString()}</span>
+              <span>Last checked on: {new Date(availability.checked_at).toLocaleString()} -- ( っ&apos;-&apos;)╮ =͟͟͞͞🏀</span>
             )}
           </div>
-          <div className="text-gray-600 text-sm">
-            ( っ'-')╮ =͟͟͞͞🏀
+          <div className="flex items-center gap-4">
+            {users && users.length > 0 && (
+              <select
+                value={selectedUserId ?? ''}
+                onChange={(e) => setSelectedUserId(Number(e.target.value))}
+                className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.email}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshMutation.isPending}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {refreshMutation.isPending ? 'Refreshing...' : 'Refresh Times'}
+            </button>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {refreshing ? 'Refreshing...' : '🔄️ Refresh Times 🔄️ '}
-          </button>
         </div>
 
         {/* Error banner */}
-        {error && (
+        {refreshMutation.error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-6 mt-4 rounded">
-            <p className="text-red-700 text-sm">{error}</p>
+            <p className="text-red-700 text-sm">{refreshMutation.error.message}</p>
           </div>
         )}
 
@@ -196,7 +161,7 @@ export default function Home() {
                   </div>
 
                   <div className="flex-1 overflow-auto p-3 space-y-2">
-                    {availableSlots.map((slot, slotIdx) => (
+                    {availableSlots.map((slot: string, slotIdx: number) => (
                       <div
                         key={slotIdx}
                         className="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition"
@@ -206,7 +171,8 @@ export default function Home() {
                         </span>
                         <button
                           onClick={() => handleBook(dateInfo.date, slot)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition"
+                          disabled={bookMutation.isPending}
+                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition disabled:opacity-50"
                         >
                           Book
                         </button>

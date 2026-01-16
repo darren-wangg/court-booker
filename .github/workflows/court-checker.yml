@@ -50,7 +50,7 @@ jobs:
 
       - name: Install Playwright browsers
         run: |
-          npx playwright install chromium
+          pnpm --filter @court-booker/shared exec playwright install chromium
           npx playwright install-deps chromium
 
       - name: Start virtual display

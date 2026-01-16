@@ -3,13 +3,15 @@
  * Returns the most recent availability snapshot from Supabase
  */
 
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
 
-export async function GET(request) {
+export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId') ? parseInt(searchParams.get('userId')) : null;
+    const userIdParam = searchParams.get('userId');
+    const userId = userIdParam ? parseInt(userIdParam) : null;
 
     let query = supabase
       .from('availability_snapshots')
@@ -27,7 +29,7 @@ export async function GET(request) {
     if (error) {
       if (error.code === 'PGRST116') {
         // No rows found
-        return Response.json(
+        return NextResponse.json(
           { error: 'No availability data found' },
           { status: 404 }
         );
@@ -35,14 +37,15 @@ export async function GET(request) {
       throw error;
     }
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       data: data,
     });
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error fetching latest availability:', error);
-    return Response.json(
-      { error: 'Failed to fetch availability data', details: error.message },
+    return NextResponse.json(
+      { error: 'Failed to fetch availability data', details: message },
       { status: 500 }
     );
   }
