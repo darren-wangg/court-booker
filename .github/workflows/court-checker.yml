@@ -2,10 +2,10 @@ name: Court Availability Checker
 
 on:
   schedule:
-    # Run every 3 hours from 9 AM to 12 AM (midnight) PST
-    # 9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST
-    # Converted to UTC (PST is UTC-8): 17:00, 20:00, 23:00, 02:00, 05:00, 08:00 UTC
-    - cron: "0 17,20,23,2,5,8 * * *"
+    # Run every 2 hours from 8 AM to 12 AM (midnight) PST
+    # 8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM, 12 AM PST
+    # Converted to UTC (PST is UTC-8): 16:00, 18:00, 20:00, 22:00, 00:00, 02:00, 04:00, 06:00, 08:00 UTC
+    - cron: "0 16,18,20,22,0,2,4,6,8 * * *"
   workflow_dispatch: # Allow manual triggering
 
 jobs:
