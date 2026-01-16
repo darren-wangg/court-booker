@@ -3,7 +3,7 @@
     "app/api/availability/refresh/route.js": {
       "maxDuration": 300
     },
-    "app/api/book/route.js": {
+    "app/api/booking/route.js": {
       "maxDuration": 300
     }
   }

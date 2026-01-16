@@ -80,7 +80,7 @@ async function refreshAvailability(userId: number | null): Promise<RefreshRespon
 }
 
 async function bookSlot(request: BookingRequest): Promise<BookingResponse> {
-  const response = await fetch('/api/book', {
+  const response = await fetch('/api/booking', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
