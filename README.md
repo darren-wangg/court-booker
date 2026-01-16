@@ -1,6 +1,6 @@
-# Court Booker
+# Court Booker ( っ'-')╮ =͟͟͞͞🏀
 
-Automated amenity reservation system for checking and booking court availability.
+Automated basketball court reservation system with availability checking, booking automation, and mobile-friendly web interface.
 
 ## Quick Start
 
@@ -8,7 +8,7 @@ Automated amenity reservation system for checking and booking court availability
 - Node.js 18+
 - pnpm
 - Supabase account
-- Browserless.io account (optional, for cloud browser)
+- Browserless.io account (for cloud browser automation)
 
 ### Setup
 
@@ -51,30 +51,62 @@ pnpm check
 cd web
 pnpm dev
 ```
-Then open http://localhost:3000
+Then open http://localhost:3001
+
+**Features:**
+- 📱 Mobile-responsive carousel (2 dates at a time with arrows)
+- 🖥️ Desktop grid view (all dates at once)
+- 🔔 Toast notifications for actions (using Sonner)
+- 🏀 Basketball animations on refresh/booking
+- ✕ Shows fully booked days with "No availabilities" message
 
 ### Project Structure
 
 ```
 court-booker/
-├── packages/shared/          # Shared services and utilities
+├── packages/shared/          # Shared services and utilities (monorepo package)
 │   ├── services/            # Core business logic
-│   │   ├── reservationChecker.ts  # Chrome automation for checking availability
+│   │   ├── reservationChecker.ts  # Chrome automation via Browserless.io
 │   │   └── bookingService.ts      # Booking automation
 │   ├── utils/               # Utilities (Supabase, browser helpers)
 │   └── config.ts            # Configuration and environment variables
-├── web/                     # Next.js web application
+├── web/                     # Next.js 14 web application
 │   ├── app/                 # Next.js app directory
-│   │   ├── api/            # API routes
-│   │   └── page.tsx        # Main UI
+│   │   ├── api/            # Serverless API routes
+│   │   │   ├── availability/  # Availability endpoints
+│   │   │   ├── book/       # Booking endpoint
+│   │   │   └── users/      # User management
+│   │   ├── page.tsx        # Main UI (mobile-responsive with carousel)
+│   │   └── layout.tsx      # Root layout with metadata & Sonner toasts
+│   ├── public/             # Static assets (favicon, og-image)
 │   └── lib/                # Web-specific utilities
 ├── scripts/                 # CLI scripts
 │   └── check-now.ts        # One-off availability check
-└── docs/                    # Documentation
-    ├── CURSOR.md           # AI agent guidelines
-    ├── CLAUDE.md           # System architecture notes
-    └── SYSTEM_ARCHITECTURE.md  # Detailed architecture
+├── docs/                    # Documentation
+│   ├── SYSTEM_ARCHITECTURE.md  # Complete technical overview
+│   ├── CURSOR.md           # AI agent guidelines
+│   └── CLAUDE.md           # System architecture notes
+└── .github/workflows/       # GitHub Actions
+    └── court-checker.yml   # Scheduled checks (6x daily)
 ```
+
+### Key Features
+
+**Mobile UI:**
+- Carousel navigation (2 dates at a time)
+- Left/right arrows to browse dates
+- Vertical stacking for easy scrolling
+- Fully booked days shown with ✕ symbol
+
+**Desktop UI:**
+- Horizontal grid showing all dates
+- Scrollable time slots per date
+- Fully booked days included in grid
+
+**Notifications:**
+- Loading states for refresh/booking
+- Success/error toasts with Sonner
+- Basketball animations 🏀
 
 ### Documentation
 
@@ -82,6 +114,7 @@ See the `docs/` folder for detailed documentation:
 - **SYSTEM_ARCHITECTURE.md** - Complete technical overview
 - **CURSOR.md** - Development guidelines
 - **CLAUDE.md** - System notes and architecture
+- **FIXES_SUMMARY.md** - Recent bug fixes and improvements
 
 ## Troubleshooting
 
@@ -96,6 +129,30 @@ See the `docs/` folder for detailed documentation:
 - Try running locally without Browserless.io
 
 **Web app not showing data:**
-- Verify Supabase credentials in `.env.local`
+- Verify Supabase credentials in `web/.env.local`
 - Check browser console for errors
-- Ensure data exists in Supabase
+- Ensure data exists in Supabase `availability_snapshots` table
+- Hard refresh browser (Cmd+Shift+R) to clear cache
+
+**GitHub Actions failing:**
+- Check Browserless.io token is valid
+- Verify all secrets are set in GitHub repository settings
+- Review workflow logs in Actions tab
+- Ensure Playwright browsers install correctly
+
+### Deployment
+
+**Vercel (Web App):**
+- Deployed from `web/` directory
+- Automatic deployments on push to main
+- Environment variables set in Vercel dashboard
+
+**GitHub Actions (Scheduled Checks):**
+- Runs every 3 hours (6x daily)
+- 9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST
+- ~180 checks/month (well within Browserless.io free tier)
+
+**Browserless.io Usage:**
+- Free tier: 1,000 checks/month
+- Current usage: ~180 automated + ~820 for manual refreshes
+- Recommended: Keep GitHub Actions at current frequency
