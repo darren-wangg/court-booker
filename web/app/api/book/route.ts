@@ -20,6 +20,16 @@ import { BookingService } from '@court-booker/shared';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// Add OPTIONS handler for CORS preflight
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Allow': 'POST, OPTIONS',
+    },
+  });
+}
+
 interface TimeSlot {
   startHour: number;
   endHour: number;
