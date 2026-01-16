@@ -9,11 +9,11 @@ If you are an AI editing this codebase, **read this once before making non-trivi
 ## Key Features
 
 1. **Automated Availability Checking**
-   - GitHub Actions: 6x daily (9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST)
+   - GitHub Actions: 9x daily (8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM, 12 AM PST)
    - Browserless.io cloud browser (60s timeout, WebSocket connection)
-   - Scrapes amenity website for next 7 days (10 AM - 10 PM slots)
+   - Scrapes amenity website for next 10 days (10 AM - 10 PM slots)
    - Saves to Supabase with `user_id=null` for CLI checks
-   - ~180 checks/month (18% of free tier)
+   - ~270 checks/month (27% of free tier)
 
 2. **Mobile-Responsive Web Dashboard**
    - **Mobile**: Carousel with 2 dates, left/right arrows, page indicator
@@ -40,8 +40,9 @@ If you are an AI editing this codebase, **read this once before making non-trivi
 ### Availability Checking Logic
 - `packages/shared/services/reservationChecker.ts` - Core scraping and parsing
 - `scripts/check-now.ts` - CLI entry point
-- `.github/workflows/court-checker.yml` - Scheduled runs (6x daily)
+- `.github/workflows/court-checker.yml` - Scheduled runs (9x daily, every 2 hours)
 - Browserless.io connection: `initializeBrowserlessChrome()` method
+- `getNext10Days()` method - Generates next 10 days to check
 
 ### Database
 - `packages/shared/utils/supabaseClient.ts` - Supabase operations
@@ -99,7 +100,7 @@ USER1_PASSWORD=password
 - **Browser Automation**: Browserless.io cloud service (WebSocket connection)
 - **Frontend**: Next.js 14 with React Query, Tailwind CSS, Sonner toasts
 - **Database**: Supabase PostgreSQL with JSONB columns
-- **Scheduled Jobs**: GitHub Actions (6x daily, every 3 hours)
+- **Scheduled Jobs**: GitHub Actions (9x daily, every 2 hours during waking hours)
 - **Mobile UI**: Responsive carousel (2 dates at a time) with arrows
 - **Desktop UI**: Horizontal grid showing all dates
 - **Notifications**: Sonner toast library for user feedback

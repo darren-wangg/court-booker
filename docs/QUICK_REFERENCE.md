@@ -53,7 +53,7 @@ court-booker/
 │   └── check-now.ts                 # CLI availability check
 │
 ├── .github/workflows/
-│   └── court-checker.yml            # ⭐ Scheduled checks (6x daily)
+│   └── court-checker.yml            # ⭐ Scheduled checks (9x daily)
 │
 └── docs/
     ├── CURRENT_FEATURES.md          # ⭐ Feature list
@@ -96,7 +96,8 @@ GitHub Actions (cron)
   → saves to Supabase
 ```
 
-**Schedule:** 6x daily (9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST)
+**Schedule:** 9x daily (8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM, 12 AM PST)
+**Days Checked:** Next 10 days (extended from 7 days)
 
 ### 2. Web UI
 ```
@@ -148,10 +149,11 @@ Browserless.io → ReservationChecker → Supabase → Next.js API → React UI
 Edit `.github/workflows/court-checker.yml`:
 ```yaml
 schedule:
-  - cron: "0 17,20,23,2,5,8 * * *"  # Current: 6x daily
+  - cron: "0 16,18,20,22,0,2,4,6,8 * * *"  # Current: 9x daily
 ```
 
 **Note:** Consider Browserless.io free tier (1,000 checks/month)
+**Current usage:** ~270 automated checks/month
 
 ### Change Mobile Carousel Items
 Edit `web/app/page.tsx`:
@@ -215,13 +217,14 @@ curl http://localhost:3001/api/availability/latest?userId=1
 
 **Browserless.io Usage:**
 - Free tier: 1,000 checks/month
-- Automated checks: ~180/month (6x daily)
-- Available for manual: ~820/month
+- Automated checks: ~270/month (9x daily)
+- Available for manual: ~730/month
 - **Status:** ✅ Well within limits
 
 **GitHub Actions:**
-- Runs: 6x daily
-- Schedule: Every 3 hours (9 AM - 12 AM PST)
+- Runs: 9x daily
+- Schedule: Every 2 hours (8 AM - 12 AM PST)
+- Days checked: Next 10 days
 - Reliability: High (with Playwright browser install fix)
 
 **Deployment:**

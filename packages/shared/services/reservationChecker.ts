@@ -443,8 +443,8 @@ export default class ReservationChecker {
       console.log('🌐 Cloud fallback mode active');
       
       // Generate realistic fallback data to keep the system functional
-      const next7Days = this.getNext7Days();
-      const fallbackResults = next7Days.map(dateInfo => ({
+      const next10Days = this.getNext10Days();
+      const fallbackResults = next10Days.map(dateInfo => ({
         date: dateInfo.fullDate,
         booked: [], // Unknown in fallback mode
         available: [], // Unknown in fallback mode  
@@ -1007,7 +1007,7 @@ export default class ReservationChecker {
     }
   }
 
-  getNext7Days() {
+  getNext10Days() {
     const days = [];
     const monthNames = [
       "January",
@@ -1030,8 +1030,8 @@ export default class ReservationChecker {
       now.toLocaleString("en-US", { timeZone: "America/New_York" })
     );
 
-    // Start from tomorrow
-    for (let i = 1; i <= 7; i++) {
+    // Start from tomorrow, check next 10 days
+    for (let i = 1; i <= 10; i++) {
       const date = new Date(easternTime);
       date.setDate(date.getDate() + i);
 
@@ -1521,13 +1521,13 @@ export default class ReservationChecker {
         allReservations = await this.loadAllReservations();
       }
 
-      // Get the next 7 days (excluding today)
-      const next7Days = this.getNext7Days();
+      // Get the next 10 days (excluding today)
+      const next10Days = this.getNext10Days();
 
       const allResults = [];
 
-      // Process each of the next 7 days
-      for (const dateInfo of next7Days) {
+      // Process each of the next 10 days
+      for (const dateInfo of next10Days) {
         // Find reservations for this specific date
         const timeSlots = this.findTimeSlotsForDate(dateInfo, allReservations);
 

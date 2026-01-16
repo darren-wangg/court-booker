@@ -148,11 +148,11 @@ See the `docs/` folder for detailed documentation:
 - Environment variables set in Vercel dashboard
 
 **GitHub Actions (Scheduled Checks):**
-- Runs every 3 hours (6x daily)
-- 9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST
-- ~180 checks/month (well within Browserless.io free tier)
+- Runs every 2 hours (9x daily)
+- 8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM, 12 AM PST
+- ~270 checks/month (27% of Browserless.io free tier)
 
 **Browserless.io Usage:**
 - Free tier: 1,000 checks/month
-- Current usage: ~180 automated + ~820 for manual refreshes
-- Recommended: Keep GitHub Actions at current frequency
+- Current usage: ~270 automated + ~730 for manual refreshes
+- Checking: Next 10 days of availability (extended from 7 days)
