@@ -147,11 +147,11 @@ export default function Home() {
               )}
             </div>
             <div className="text-gray-600 text-sm md:hidden">
-              ( っ&apos;-&apos;)╮ =͟͟͞͞🏀
+              <span className="basketball-header">( っ&apos;-&apos;)╮ =͟͟͞͞🏀</span>
             </div>
           </div>
           <div className="hidden md:block text-gray-600 text-sm">
-            ( っ&apos;-&apos;)╮ =͟͟͞͞🏀
+            <span className="basketball-header">( っ&apos;-&apos;)╮ =͟͟͞͞🏀</span>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             {users && users.length > 0 && (

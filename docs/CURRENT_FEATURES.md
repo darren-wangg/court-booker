@@ -13,14 +13,14 @@ Court Booker is a fully functional basketball court reservation system with auto
 ### 1. **Automated Availability Checking**
 
 **How it works:**
-- GitHub Actions runs every 2 hours (9x daily)
+- GitHub Actions runs every 3 hours (6x daily)
 - Connects to Browserless.io cloud browser service
-- Scrapes amenity website for next 10 days
+- Scrapes amenity website for next 7 days
 - Saves results to Supabase database
 
 **Schedule:**
-- 8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM, 12 AM PST
-- ~270 checks/month (27% of Browserless.io free tier)
+- 9 AM, 12 PM, 3 PM, 6 PM, 9 PM, 12 AM PST
+- ~180 checks/month (18% of Browserless.io free tier)
 
 **Implementation:**
 - `packages/shared/services/reservationChecker.ts` - Core logic
@@ -214,7 +214,7 @@ USER2_PASSWORD=password2
 ## 📊 Current Status
 
 **✅ Fully Functional:**
-- Automated availability checking (9x daily, next 10 days)
+- Automated availability checking (6x daily, next 7 days)
 - Mobile-responsive web interface
 - Manual refresh with toast notifications
 - Booking automation
@@ -230,9 +230,9 @@ USER2_PASSWORD=password2
 - Fixed GitHub Actions Playwright install
 
 **📈 Usage Stats:**
-- Browserless.io: ~270 automated checks/month
-- ~730 checks remaining for manual refreshes
-- Well within free tier limits (27% usage)
+- Browserless.io: ~210 automated checks/month
+- ~840 checks remaining for manual refreshes
+- Well within free tier limits (21% usage)
 
 ---
 

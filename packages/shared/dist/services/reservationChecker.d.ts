@@ -50,7 +50,7 @@ export default class ReservationChecker {
         totalSlots: number;
     };
     datesMatch(reservationDate: any, dateInfo: any): boolean;
-    getNext10Days(): any[];
+    getNext7Days(): any[];
     generateTimeSlots(): any[];
     /**
      * Robust browser operation wrapper with context recovery for cloud environments

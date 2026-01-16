@@ -24,3 +24,14 @@ body {
 .basketball-shoot {
   animation: shoot 0.8s ease-out forwards;
 }
+
+/* Basketball header animation - moves left and right */
+@keyframes basketball-sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(10px); }
+}
+
+.basketball-header {
+  display: inline-block;
+  animation: basketball-sway 2s ease-in-out infinite;
+}
