@@ -24,8 +24,15 @@ class ReservationChecker {
             // Check for Browserless.io cloud browser token
             const browserlessToken = process.env.BROWSERLESS_TOKEN;
             if (browserlessToken) {
-                console.log('☁️ Browserless.io token detected - using cloud browser service');
-                return this.initializeBrowserlessChrome(browserlessToken);
+                console.log('☁️ Browserless.io token detected - attempting cloud browser service');
+                try {
+                    await this.initializeBrowserlessChrome(browserlessToken);
+                    return; // Success, exit early
+                }
+                catch (browserlessError) {
+                    console.log('⚠️ Browserless.io connection failed, falling back to local Chrome');
+                    // Continue to local Chrome initialization below
+                }
             }
             // Detect cloud environment
             const isCloudEnv = process.env.NODE_ENV === 'production' || process.env.CLOUD_ENV;
@@ -157,12 +164,12 @@ class ReservationChecker {
             const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
             console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
             const playwrightBrowser = new playwrightBrowser_1.PlaywrightBrowser();
-            // Add timeout to the connection attempt
+            // Add timeout to the connection attempt - increased to 60s for better reliability
             const connectionPromise = playwrightBrowser.connect(browserWSEndpoint);
             const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Connection timeout after 30 seconds')), 30000);
+                setTimeout(() => reject(new Error('Connection timeout after 60 seconds')), 60000);
             });
-            console.log('⏳ Attempting WebSocket connection with 30s timeout...');
+            console.log('⏳ Attempting WebSocket connection with 60s timeout...');
             this.browser = await Promise.race([connectionPromise, timeoutPromise]);
             console.log('✅ Connected to Browserless.io cloud browser');
             // Create new page
@@ -188,9 +195,10 @@ class ReservationChecker {
             console.error('   - Network connectivity from cloud server to Browserless.io');
             console.error('   - Rate limit exceeded (free tier)');
             console.error('   - Browserless.io service downtime');
-            console.log('🔄 Falling back to local cloud browser...');
-            // Fall back to cloud browser
-            return this.initializeCloudChrome();
+            console.log('🔄 Falling back to local Chrome browser...');
+            // Fall back to local Chrome (not cloud Chrome which enters fallback mode)
+            // This ensures we try local Chrome before giving up
+            throw error; // Let initialize() handle the fallback to local Chrome
         }
     }
     async initializeCloudChrome() {
@@ -760,8 +768,12 @@ class ReservationChecker {
         // Extract target month and day
         const targetMonth = dateInfo.monthName || dateInfo.fullDate.split(" ")[0];
         const targetDay = parseInt(dateInfo.day, 10);
+        console.log(`\n🔍 Finding slots for: ${dateInfo.fullDate}`);
+        console.log(`   Target: ${targetMonth} ${targetDay}`);
+        console.log(`   Total reservations to check: ${allReservations.size}`);
         // Look for matching date in reservations
         let foundMatch = false;
+        let checkedDates = [];
         for (const [resDate, timeSlots] of allReservations.entries()) {
             // Parse the reservation date (e.g., "Saturday, September 06")
             const parts = resDate.split(", ");
@@ -772,8 +784,10 @@ class ReservationChecker {
                     const resMonth = monthDayParts[0];
                     const resDay = monthDayParts[1];
                     const resDayNum = parseInt(resDay, 10);
+                    checkedDates.push(`${resMonth} ${resDayNum}`);
                     // Check if this matches our target date
                     if (resMonth === targetMonth && resDayNum === targetDay) {
+                        console.log(`   ✅ MATCH FOUND: "${resDate}" has ${timeSlots.size} booked slots`);
                         bookedSlots.push(...Array.from(timeSlots));
                         foundMatch = true;
                         break;
@@ -781,8 +795,13 @@ class ReservationChecker {
                 }
             }
         }
+        if (!foundMatch) {
+            console.log(`   ⚠️  NO MATCH FOUND for ${targetMonth} ${targetDay}`);
+            console.log(`   Checked dates: ${checkedDates.slice(0, 5).join(', ')}${checkedDates.length > 5 ? '...' : ''}`);
+        }
         // IMPORTANT: Available slots are those NOT in the reserved list
         const availableSlots = allPossibleSlots.filter((slot) => !bookedSlots.includes(slot));
+        console.log(`   Result: ${bookedSlots.length} booked, ${availableSlots.length} available`);
         return {
             date: dateInfo.fullDate,
             booked: bookedSlots,

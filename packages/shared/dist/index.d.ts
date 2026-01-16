@@ -1,4 +1,5 @@
 export { default as ReservationChecker } from './services/reservationChecker';
+export { default as ApiReservationChecker } from './services/apiReservationChecker';
 export { default as BookingService } from './services/bookingService';
 export * from './utils/supabaseClient';
 export { PlaywrightBrowser } from './utils/playwrightBrowser';

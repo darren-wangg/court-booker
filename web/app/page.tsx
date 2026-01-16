@@ -103,8 +103,11 @@ export default function Home() {
         <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
           <div className="text-gray-600 text-sm">
             {availability && (
-              <span>Last checked on: {new Date(availability.checked_at).toLocaleString()} -- ( っ&apos;-&apos;)╮ =͟͟͞͞🏀</span>
+              <span>Last checked on: {new Date(availability.checked_at).toLocaleString()}</span>
             )}
+          </div>
+          <div className="text-gray-600 text-sm">
+            ( っ&apos;-&apos;)╮ =͟͟͞͞🏀
           </div>
           <div className="flex items-center gap-4">
             {users && users.length > 0 && (

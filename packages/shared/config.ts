@@ -1,6 +1,6 @@
 // Only load .env in standalone script environments (not Next.js, not CI)
 // Next.js/Vercel handle environment variables natively
-const isNextJS = typeof window !== 'undefined' || process.env.NEXT_RUNTIME || process.env.__NEXT_PROCESSED_ENV;
+const isNextJS = (typeof globalThis !== 'undefined' && 'window' in globalThis) || process.env.NEXT_RUNTIME || process.env.__NEXT_PROCESSED_ENV;
 const isCI = process.env.CI || process.env.GITHUB_ACTIONS;
 
 if (!isNextJS && !isCI) {
