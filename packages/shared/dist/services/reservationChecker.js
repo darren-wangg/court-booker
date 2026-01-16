@@ -768,12 +768,8 @@ class ReservationChecker {
         // Extract target month and day
         const targetMonth = dateInfo.monthName || dateInfo.fullDate.split(" ")[0];
         const targetDay = parseInt(dateInfo.day, 10);
-        console.log(`\n🔍 Finding slots for: ${dateInfo.fullDate}`);
-        console.log(`   Target: ${targetMonth} ${targetDay}`);
-        console.log(`   Total reservations to check: ${allReservations.size}`);
         // Look for matching date in reservations
         let foundMatch = false;
-        let checkedDates = [];
         for (const [resDate, timeSlots] of allReservations.entries()) {
             // Parse the reservation date (e.g., "Saturday, September 06")
             const parts = resDate.split(", ");
@@ -784,10 +780,8 @@ class ReservationChecker {
                     const resMonth = monthDayParts[0];
                     const resDay = monthDayParts[1];
                     const resDayNum = parseInt(resDay, 10);
-                    checkedDates.push(`${resMonth} ${resDayNum}`);
                     // Check if this matches our target date
                     if (resMonth === targetMonth && resDayNum === targetDay) {
-                        console.log(`   ✅ MATCH FOUND: "${resDate}" has ${timeSlots.size} booked slots`);
                         bookedSlots.push(...Array.from(timeSlots));
                         foundMatch = true;
                         break;
@@ -795,13 +789,8 @@ class ReservationChecker {
                 }
             }
         }
-        if (!foundMatch) {
-            console.log(`   ⚠️  NO MATCH FOUND for ${targetMonth} ${targetDay}`);
-            console.log(`   Checked dates: ${checkedDates.slice(0, 5).join(', ')}${checkedDates.length > 5 ? '...' : ''}`);
-        }
         // IMPORTANT: Available slots are those NOT in the reserved list
         const availableSlots = allPossibleSlots.filter((slot) => !bookedSlots.includes(slot));
-        console.log(`   Result: ${bookedSlots.length} booked, ${availableSlots.length} available`);
         return {
             date: dateInfo.fullDate,
             booked: bookedSlots,

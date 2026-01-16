@@ -10,3 +10,12 @@ gmail-service-account.json
 .next/
 web/.next/
 .env.local
+
+# Build outputs
+dist/
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

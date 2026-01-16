@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
       .from('availability_snapshots')
       .select('*')
       .eq('success', true)
-      .gt('total_available_slots', -1) // Exclude fallback mode (which has 0 slots but we want to include legitimate 0s)
       .order('created_at', { ascending: false });
 
     if (userId) {

@@ -80,7 +80,7 @@ export default function Home() {
   const dates = (availability?.dates as DateInfo[]) || []
 
   return (
-    <main className="h-screen p-4 overflow-hidden bg-gray-100">
+    <main className="min-h-screen h-screen p-2 md:p-4 overflow-hidden bg-gray-100">
       {/* Basketball animation */}
       {basketballAnimation && (
         <div
@@ -100,16 +100,24 @@ export default function Home() {
 
       <div className="h-full flex flex-col bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b px-6 py-4 flex justify-between items-center">
-          <div className="text-gray-600 text-sm">
-            {availability && (
-              <span>Last checked on: {new Date(availability.checked_at).toLocaleString()}</span>
-            )}
+        <div className="bg-white border-b px-4 md:px-6 py-4 flex flex-col md:flex-row md:justify-between md:items-center gap-3">
+          <div className="flex justify-between items-center md:block">
+            <div className="text-gray-600 text-xs md:text-sm">
+              {availability && (
+                <span className="hidden md:inline">Last checked on: {new Date(availability.checked_at).toLocaleString()}</span>
+              )}
+              {availability && (
+                <span className="md:hidden">Last: {new Date(availability.checked_at).toLocaleTimeString()}</span>
+              )}
+            </div>
+            <div className="text-gray-600 text-sm md:hidden">
+              ( っ&apos;-&apos;)╮ =͟͟͞͞🏀
+            </div>
           </div>
-          <div className="text-gray-600 text-sm">
+          <div className="hidden md:block text-gray-600 text-sm">
             ( っ&apos;-&apos;)╮ =͟͟͞͞🏀
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
             {users && users.length > 0 && (
               <select
                 value={selectedUserId ?? ''}
@@ -146,9 +154,11 @@ export default function Home() {
             <p className="text-gray-500">No availability data found</p>
           </div>
         ) : (
-          <div className="flex-1 grid gap-4 p-6 overflow-hidden"
+          <div className="flex-1 flex flex-col md:grid md:gap-4 p-4 md:p-6 overflow-auto"
             style={{
-              gridTemplateColumns: `repeat(${dates.filter(d => (d.available || []).length > 0).length}, 1fr)`
+              gridTemplateColumns: dates.filter(d => (d.available || []).length > 0).length > 0 
+                ? `repeat(${dates.filter(d => (d.available || []).length > 0).length}, 1fr)` 
+                : '1fr'
             }}>
             {dates.map((dateInfo, idx) => {
               const availableSlots = dateInfo.available || []
@@ -158,24 +168,24 @@ export default function Home() {
               }
 
               return (
-                <div key={idx} className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                <div key={idx} className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm mb-4 md:mb-0">
                   <div className="bg-gray-50 border-b px-4 py-3 text-center">
-                    <span className="text-sm font-semibold text-gray-900">{dateInfo.date}</span>
+                    <span className="text-sm md:text-sm font-semibold text-gray-900">{dateInfo.date}</span>
                   </div>
 
-                  <div className="flex-1 overflow-auto p-3 space-y-2">
+                  <div className="flex-1 overflow-auto p-3 space-y-2 max-h-96 md:max-h-none">
                     {availableSlots.map((slot: string, slotIdx: number) => (
                       <div
                         key={slotIdx}
                         className="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition"
                       >
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm text-gray-700 flex-1">
                           {slot}
                         </span>
                         <button
                           onClick={() => handleBook(dateInfo.date, slot)}
                           disabled={bookMutation.isPending}
-                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition disabled:opacity-50"
+                          className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition disabled:opacity-50 ml-2 whitespace-nowrap"
                         >
                           Book
                         </button>
