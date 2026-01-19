@@ -7,6 +7,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ReservationChecker, saveAvailabilitySnapshot } from '@court-booker/shared';
 
+// Force dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     // Verify API secret if provided
