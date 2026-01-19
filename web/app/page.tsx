@@ -6,6 +6,24 @@ import Spinner from './components/Spinner'
 import { useUsers } from './queries/useUsers'
 import { useAvailability, useRefreshAvailability, useBookSlot, DateInfo } from './queries/useAvailabilities'
 
+// Check if a date string (e.g., "Saturday, January 18") is today
+function isToday(dateStr: string): boolean {
+  const today = new Date()
+  // Try parsing the date string - handle formats like "Saturday, January 18" or "January 18, 2025"
+  const parsed = new Date(dateStr)
+  if (!isNaN(parsed.getTime())) {
+    return (
+      parsed.getDate() === today.getDate() &&
+      parsed.getMonth() === today.getMonth() &&
+      parsed.getFullYear() === today.getFullYear()
+    )
+  }
+  // Fallback: check if the date string contains today's month and day
+  const todayFormatted = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  return dateStr.includes(today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })) ||
+         dateStr === todayFormatted
+}
+
 export default function Home() {
   const [basketballAnimation, setBasketballAnimation] = useState<string | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
@@ -221,11 +239,13 @@ export default function Home() {
               {visibleDates.map((dateInfo, idx) => {
                 const availableSlots = dateInfo.available || []
                 const isFullyBooked = availableSlots.length === 0
+                const isSameDay = isToday(dateInfo.date)
 
                 return (
-                  <div key={mobileCarouselIndex * datesPerPage + idx} className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                    <div className="bg-gray-50 border-b px-3 py-2 text-center">
+                  <div key={mobileCarouselIndex * datesPerPage + idx} className={`flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm ${isSameDay ? 'opacity-75' : ''}`}>
+                    <div className={`border-b px-3 py-2 text-center ${isSameDay ? 'bg-amber-50' : 'bg-gray-50'}`}>
                       <span className="text-xs font-semibold text-gray-900">{dateInfo.date}</span>
+                      {isSameDay && <span className="block text-[10px] text-amber-600">Same-day booking unavailable</span>}
                     </div>
 
                     {isFullyBooked ? (
@@ -245,10 +265,15 @@ export default function Home() {
                             </span>
                             <button
                               onClick={() => handleBook(dateInfo.date, slot)}
-                              disabled={bookMutation.isPending}
-                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded font-medium transition disabled:opacity-50 w-full"
+                              disabled={bookMutation.isPending || isSameDay}
+                              className={`text-white text-xs px-2 py-1 rounded font-medium transition disabled:opacity-50 w-full ${
+                                isSameDay
+                                  ? 'bg-gray-400 cursor-not-allowed'
+                                  : 'bg-blue-500 hover:bg-blue-600'
+                              }`}
+                              title={isSameDay ? 'Same-day booking not available' : undefined}
                             >
-                              Book
+                              {isSameDay ? 'Unavailable' : 'Book'}
                             </button>
                           </div>
                         ))}
@@ -262,18 +287,20 @@ export default function Home() {
             {/* Desktop: Original horizontal grid */}
             <div className="hidden md:grid md:gap-4 p-6 overflow-auto flex-1"
               style={{
-                gridTemplateColumns: dates.length > 0 
-                  ? `repeat(${dates.length}, 1fr)` 
+                gridTemplateColumns: dates.length > 0
+                  ? `repeat(${dates.length}, 1fr)`
                   : '1fr'
               }}>
               {dates.map((dateInfo, idx) => {
                 const availableSlots = dateInfo.available || []
                 const isFullyBooked = availableSlots.length === 0
+                const isSameDay = isToday(dateInfo.date)
 
                 return (
-                  <div key={idx} className="flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                    <div className="bg-gray-50 border-b px-4 py-3 text-center">
+                  <div key={idx} className={`flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm ${isSameDay ? 'opacity-75' : ''}`}>
+                    <div className={`border-b px-4 py-3 text-center ${isSameDay ? 'bg-amber-50' : 'bg-gray-50'}`}>
                       <span className="text-sm font-semibold text-gray-900">{dateInfo.date}</span>
+                      {isSameDay && <span className="block text-xs text-amber-600">Same-day booking unavailable</span>}
                     </div>
 
                     {isFullyBooked ? (
@@ -293,10 +320,15 @@ export default function Home() {
                             </span>
                             <button
                               onClick={() => handleBook(dateInfo.date, slot)}
-                              disabled={bookMutation.isPending}
-                              className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition disabled:opacity-50 ml-2 whitespace-nowrap"
+                              disabled={bookMutation.isPending || isSameDay}
+                              className={`text-white text-xs px-3 py-1.5 rounded-lg font-medium transition disabled:opacity-50 ml-2 whitespace-nowrap ${
+                                isSameDay
+                                  ? 'bg-gray-400 cursor-not-allowed'
+                                  : 'bg-blue-500 hover:bg-blue-600'
+                              }`}
+                              title={isSameDay ? 'Same-day booking not available' : undefined}
                             >
-                              Book
+                              {isSameDay ? 'Unavailable' : 'Book'}
                             </button>
                           </div>
                         ))}

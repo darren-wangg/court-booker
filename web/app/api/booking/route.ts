@@ -14,6 +14,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BookingService } from '@court-booker/shared';
 
+// Force this route to be dynamic (not statically optimized)
+// Without this, Vercel may convert it to a static file that only handles GET → 405 on POST
+export const dynamic = 'force-dynamic';
+
 // CORS headers for API route
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
