@@ -73,8 +73,8 @@ class BookingService {
         try {
             console.log('☁️ Connecting to Browserless.io cloud browser service for booking...');
             console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
-            // Connect to cloud browser via WebSocket
-            const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
+            // Connect to cloud browser via WebSocket - Browserless v2 Playwright endpoint
+            const browserWSEndpoint = `wss://production-sfo.browserless.io/chromium/playwright?token=${token}`;
             console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
             const playwrightBrowser = new playwrightBrowser_1.PlaywrightBrowser();
             // Add timeout to the connection attempt

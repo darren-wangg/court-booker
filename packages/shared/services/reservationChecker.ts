@@ -187,8 +187,8 @@ export default class ReservationChecker {
       console.log('☁️ Connecting to Browserless.io cloud browser service...');
       console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
       
-      // Connect to cloud browser via WebSocket (updated endpoint)
-      const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
+      // Connect to cloud browser via WebSocket - Browserless v2 Playwright endpoint
+      const browserWSEndpoint = `wss://production-sfo.browserless.io/chromium/playwright?token=${token}`;
       console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
       
       const playwrightBrowser = new PlaywrightBrowser();

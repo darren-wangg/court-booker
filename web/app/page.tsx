@@ -21,7 +21,7 @@ function isToday(dateStr: string): boolean {
   // Fallback: check if the date string contains today's month and day
   const todayFormatted = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   return dateStr.includes(today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })) ||
-         dateStr === todayFormatted
+    dateStr === todayFormatted
 }
 
 export default function Home() {
@@ -50,7 +50,7 @@ export default function Home() {
   const handleRefresh = () => {
     triggerBasketballAnimation('bounce')
     const toastId = toast.loading('Fetching latest availability...')
-    
+
     refreshMutation.mutate(selectedUserId, {
       onSuccess: () => {
         toast.success('Availability updated!', { id: toastId })
@@ -64,7 +64,7 @@ export default function Home() {
   const handleBook = (date: string, timeSlot: string) => {
     triggerBasketballAnimation('shoot')
     const toastId = toast.loading('Booking court...')
-    
+
     bookMutation.mutate(
       { date, time: timeSlot, userId: selectedUserId },
       {
@@ -109,25 +109,25 @@ export default function Home() {
 
   // The availability object has dates at the root level
   const dates = (availability?.dates as DateInfo[]) || []
-  
+
   // Mobile carousel navigation
   const datesPerPage = 2
   const totalPages = Math.ceil(dates.length / datesPerPage)
   const canGoPrev = mobileCarouselIndex > 0
   const canGoNext = mobileCarouselIndex < totalPages - 1
-  
+
   const handlePrevDates = () => {
     if (canGoPrev) {
       setMobileCarouselIndex(prev => prev - 1)
     }
   }
-  
+
   const handleNextDates = () => {
     if (canGoNext) {
       setMobileCarouselIndex(prev => prev + 1)
     }
   }
-  
+
   const visibleDates = dates.slice(
     mobileCarouselIndex * datesPerPage,
     (mobileCarouselIndex + 1) * datesPerPage
@@ -258,23 +258,21 @@ export default function Home() {
                         {availableSlots.map((slot: string, slotIdx: number) => (
                           <div
                             key={slotIdx}
-                            className="flex flex-col gap-2 bg-gray-50 p-2 rounded-lg hover:bg-gray-100 transition"
+                            className="flex flex-col gap-2 bg-gray-50 p-2 rounded-lg"
                           >
                             <span className="text-xs text-gray-700">
                               {slot}
                             </span>
-                            <button
-                              onClick={() => handleBook(dateInfo.date, slot)}
-                              disabled={bookMutation.isPending || isSameDay}
-                              className={`text-white text-xs px-2 py-1 rounded font-medium transition disabled:opacity-50 w-full ${
-                                isSameDay
-                                  ? 'bg-gray-400 cursor-not-allowed'
-                                  : 'bg-blue-500 hover:bg-blue-600'
-                              }`}
-                              title={isSameDay ? 'Same-day booking not available' : undefined}
-                            >
-                              {isSameDay ? 'Unavailable' : 'Book'}
-                            </button>
+                            {!isSameDay && (
+                              <button
+                                onClick={() => handleBook(dateInfo.date, slot)}
+                                disabled={bookMutation.isPending}
+                                className="w-7 h-7 rounded-lg transition disabled:opacity-50 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
+                                title="Book this slot"
+                              >
+                                🏀
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -313,23 +311,21 @@ export default function Home() {
                         {availableSlots.map((slot: string, slotIdx: number) => (
                           <div
                             key={slotIdx}
-                            className="flex justify-between items-center bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition"
+                            className="flex justify-between items-center bg-gray-50 p-3 rounded-lg"
                           >
                             <span className="text-sm text-gray-700 flex-1">
                               {slot}
                             </span>
-                            <button
-                              onClick={() => handleBook(dateInfo.date, slot)}
-                              disabled={bookMutation.isPending || isSameDay}
-                              className={`text-white text-xs px-3 py-1.5 rounded-lg font-medium transition disabled:opacity-50 ml-2 whitespace-nowrap ${
-                                isSameDay
-                                  ? 'bg-gray-400 cursor-not-allowed'
-                                  : 'bg-blue-500 hover:bg-blue-600'
-                              }`}
-                              title={isSameDay ? 'Same-day booking not available' : undefined}
-                            >
-                              {isSameDay ? 'Unavailable' : 'Book'}
-                            </button>
+                            {!isSameDay && (
+                              <button
+                                onClick={() => handleBook(dateInfo.date, slot)}
+                                disabled={bookMutation.isPending}
+                                className="w-8 h-8 rounded-lg transition ml-2 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
+                                title="Book this slot"
+                              >
+                                🏀
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>

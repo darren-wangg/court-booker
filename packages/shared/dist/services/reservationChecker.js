@@ -160,8 +160,8 @@ class ReservationChecker {
         try {
             console.log('☁️ Connecting to Browserless.io cloud browser service...');
             console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
-            // Connect to cloud browser via WebSocket (updated endpoint)
-            const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}`;
+            // Connect to cloud browser via WebSocket - Browserless v2 Playwright endpoint
+            const browserWSEndpoint = `wss://production-sfo.browserless.io/chromium/playwright?token=${token}`;
             console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
             const playwrightBrowser = new playwrightBrowser_1.PlaywrightBrowser();
             // Add timeout to the connection attempt - increased to 60s for better reliability
@@ -858,8 +858,9 @@ class ReservationChecker {
         // Use current Eastern Time
         const now = new Date();
         const easternTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-        // Start from tomorrow
-        for (let i = 1; i <= 7; i++) {
+        // Start from today (i=0) to include same-day availability
+        // UI will disable booking for same-day slots since the booking site doesn't allow it
+        for (let i = 0; i <= 7; i++) {
             const date = new Date(easternTime);
             date.setDate(date.getDate() + i);
             const monthName = monthNames[date.getMonth()];

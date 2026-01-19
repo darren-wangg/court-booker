@@ -28,8 +28,8 @@ body {
 /* Basketball header animation - moves forward, flips, and moves backward */
 @keyframes basketball-move {
   0% { transform: translateX(0) scaleX(1); }
-  45% { transform: translateX(50px) scaleX(1); }
-  50% { transform: translateX(50px) scaleX(-1); }
+  45% { transform: translateX(35px) scaleX(1); }
+  50% { transform: translateX(35px) scaleX(-1); }
   95% { transform: translateX(0) scaleX(-1); }
   100% { transform: translateX(0) scaleX(1); }
 }
