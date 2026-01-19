@@ -1030,8 +1030,9 @@ export default class ReservationChecker {
       now.toLocaleString("en-US", { timeZone: "America/New_York" })
     );
 
-    // Start from tomorrow
-    for (let i = 1; i <= 7; i++) {
+    // Start from today (i=0) to include same-day availability
+    // UI will disable booking for same-day slots since the booking site doesn't allow it
+    for (let i = 0; i <= 7; i++) {
       const date = new Date(easternTime);
       date.setDate(date.getDate() + i);
 

@@ -1,9 +1,9 @@
 {
   "functions": {
-    "app/api/availability/refresh/route.js": {
+    "app/api/availability/refresh/route.ts": {
       "maxDuration": 300
     },
-    "app/api/booking/route.js": {
+    "app/api/booking/route.ts": {
       "maxDuration": 300
     }
   }
