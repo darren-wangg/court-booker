@@ -6,17 +6,44 @@ import Spinner from './components/Spinner'
 import { useUsers } from './queries/useUsers'
 import { useAvailability, useRefreshAvailability, useBookSlot, DateInfo } from './queries/useAvailabilities'
 
+// Parse a date string like "Saturday January 18, 2025" or "January 18, 2025"
+function parseDateString(dateStr: string): Date | null {
+  // Try direct parsing first
+  const parsed = new Date(dateStr)
+  if (!isNaN(parsed.getTime())) {
+    return parsed
+  }
+  // Try removing day of week prefix
+  const withoutDay = dateStr.replace(/^[A-Za-z]+\s+/, '')
+  const parsed2 = new Date(withoutDay)
+  if (!isNaN(parsed2.getTime())) {
+    return parsed2
+  }
+  return null
+}
+
+// Check if a date string is in the past (before today)
+function isPastDate(dateStr: string): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const parsed = parseDateString(dateStr)
+  if (parsed) {
+    parsed.setHours(0, 0, 0, 0)
+    return parsed < today
+  }
+  return false
+}
+
 // Check if a date string (e.g., "Saturday, January 18") is today
 function isToday(dateStr: string): boolean {
   const today = new Date()
-  // Try parsing the date string - handle formats like "Saturday, January 18" or "January 18, 2025"
-  const parsed = new Date(dateStr)
-  if (!isNaN(parsed.getTime())) {
-    return (
-      parsed.getDate() === today.getDate() &&
-      parsed.getMonth() === today.getMonth() &&
-      parsed.getFullYear() === today.getFullYear()
-    )
+  today.setHours(0, 0, 0, 0)
+
+  const parsed = parseDateString(dateStr)
+  if (parsed) {
+    parsed.setHours(0, 0, 0, 0)
+    return parsed.getTime() === today.getTime()
   }
   // Fallback: check if the date string contains today's month and day
   const todayFormatted = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -108,7 +135,8 @@ export default function Home() {
   }
 
   // The availability object has dates at the root level
-  const dates = (availability?.dates as DateInfo[]) || []
+  // Filter out past dates (before today) to avoid showing stale data
+  const dates = ((availability?.dates as DateInfo[]) || []).filter(d => !isPastDate(d.date))
 
   // Mobile carousel navigation
   const datesPerPage = 2
