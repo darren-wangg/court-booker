@@ -15,8 +15,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BookingService } from '@court-booker/shared';
 
 // Force this route to be dynamic (not statically optimized)
-// Without this, Vercel may convert it to a static file that only handles GET → 405 on POST
 export const dynamic = 'force-dynamic';
+
+// Max duration for Vercel serverless function (in seconds)
+export const maxDuration = 300;
 
 // CORS headers for API route
 const corsHeaders = {
@@ -54,11 +56,21 @@ export async function POST(request: NextRequest) {
     if (expectedSecret && apiSecret !== expectedSecret) {
       return NextResponse.json(
         { error: 'Unauthorized' },
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       );
     }
 
-    const body = await request.json();
+    // Safely parse JSON body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: 'Invalid JSON body', details: 'Request body must be valid JSON' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
     const { date, time, userId } = body;
 
     // Validate input

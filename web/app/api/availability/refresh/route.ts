@@ -10,6 +10,9 @@ import { ReservationChecker, saveAvailabilitySnapshot } from '@court-booker/shar
 // Force dynamic to prevent static optimization
 export const dynamic = 'force-dynamic';
 
+// Max duration for Vercel serverless function (in seconds)
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     // Verify API secret if provided
@@ -23,7 +26,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    // Safely parse JSON body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: 'Invalid JSON body', details: 'Request body must be valid JSON' },
+        { status: 400 }
+      );
+    }
+
     const userId = body.userId || null;
 
     console.log(`🔍 Triggering availability check for user: ${userId || 'default'}`);
