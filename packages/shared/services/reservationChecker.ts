@@ -511,7 +511,7 @@ export default class ReservationChecker {
       await this.page.click(submitButton);
       
       // Wait and check if login succeeded manually - longer wait for CI
-      const loginWaitTime = process.env.GITHUB_ACTIONS ? 20000 : 10000; // 20s for GHA, 10s otherwise
+      const loginWaitTime = process.env.GITHUB_ACTIONS ? 8000 : 5000; // 8s for GHA, 5s otherwise
       console.log(`🔍 Waiting ${loginWaitTime/1000}s for login to process...`);
       await new Promise(resolve => setTimeout(resolve, loginWaitTime));
       
@@ -881,21 +881,8 @@ export default class ReservationChecker {
           const clicked = await this.clickShowMoreReservations();
           if (clicked) {
             clickCount++;
-            // Longer wait for production environment
-            const waitTime = process.env.NODE_ENV === 'production' ? 5000 : 2000;
-            await new Promise((resolve) => setTimeout(resolve, waitTime));
-            
-            // Additional wait for production environment after clicking "Show More"
-            if (process.env.NODE_ENV === 'production') {
-              try {
-                await this.page.waitForFunction(
-                  () => document.readyState === 'complete',
-                  { timeout: 10000 }
-                );
-              } catch (loadError) {
-                await this.page.waitForTimeout(2000);
-              }
-            }
+            // Brief wait for content to load - keep short to avoid Browserless timeout
+            await new Promise((resolve) => setTimeout(resolve, 1500));
           } else {
             hasMoreButton = false;
           }
@@ -1182,10 +1169,8 @@ export default class ReservationChecker {
 
       // Use much longer timeout for dynamic content loading
       let tableTimeout = timeouts.waitForSelector;
-      if (process.env.GITHUB_ACTIONS) {
-        tableTimeout = 120000;
-      } else if (process.env.NODE_ENV === 'production') {
-        tableTimeout = 150000; // Even longer for production cloud environment
+      if (process.env.GITHUB_ACTIONS || process.env.NODE_ENV === 'production') {
+        tableTimeout = 15000; // Keep short to avoid Browserless timeout
       }
       console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
       

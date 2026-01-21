@@ -61,8 +61,8 @@ jobs:
 
       - name: Run court availability check
         env:
-          # Browserless.io (cloud browser automation)
-          BROWSERLESS_TOKEN: ${{ secrets.BROWSERLESS_TOKEN }}
+          # Note: NOT using BROWSERLESS_TOKEN - using local Playwright instead
+          # This avoids Browserless.io session timeout limits
 
           # User credentials (multi-user format)
           USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
