@@ -432,7 +432,7 @@ class ReservationChecker {
             console.log('🔍 Clicking submit button...');
             await this.page.click(submitButton);
             // Wait and check if login succeeded manually - longer wait for CI
-            const loginWaitTime = process.env.GITHUB_ACTIONS ? 20000 : 10000; // 20s for GHA, 10s otherwise
+            const loginWaitTime = process.env.GITHUB_ACTIONS ? 8000 : 5000; // 8s for GHA, 5s otherwise
             console.log(`🔍 Waiting ${loginWaitTime / 1000}s for login to process...`);
             await new Promise(resolve => setTimeout(resolve, loginWaitTime));
             const currentUrl = this.page.url();
@@ -737,18 +737,8 @@ class ReservationChecker {
                     const clicked = await this.clickShowMoreReservations();
                     if (clicked) {
                         clickCount++;
-                        // Longer wait for production environment
-                        const waitTime = process.env.NODE_ENV === 'production' ? 5000 : 2000;
-                        await new Promise((resolve) => setTimeout(resolve, waitTime));
-                        // Additional wait for production environment after clicking "Show More"
-                        if (process.env.NODE_ENV === 'production') {
-                            try {
-                                await this.page.waitForFunction(() => document.readyState === 'complete', { timeout: 10000 });
-                            }
-                            catch (loadError) {
-                                await this.page.waitForTimeout(2000);
-                            }
-                        }
+                        // Brief wait for content to load - keep short to avoid Browserless timeout
+                        await new Promise((resolve) => setTimeout(resolve, 1500));
                     }
                     else {
                         hasMoreButton = false;
@@ -992,11 +982,8 @@ class ReservationChecker {
             }
             // Use much longer timeout for dynamic content loading
             let tableTimeout = config_1.timeouts.waitForSelector;
-            if (process.env.GITHUB_ACTIONS) {
-                tableTimeout = 120000;
-            }
-            else if (process.env.NODE_ENV === 'production') {
-                tableTimeout = 150000; // Even longer for production cloud environment
+            if (process.env.GITHUB_ACTIONS || process.env.NODE_ENV === 'production') {
+                tableTimeout = 15000; // Keep short to avoid Browserless timeout
             }
             console.log(`🔍 Waiting for reservation table (timeout: ${tableTimeout}ms)...`);
             // Wait for any loading indicators to disappear and table to be visible
@@ -1011,108 +998,26 @@ class ReservationChecker {
                     console.log('⚠️ ReadyState wait failed, continuing anyway');
                 }
                 console.log('🔍 Page reached network idle state');
-                // In CI or production environment, add extra waiting for dynamic content
+                // In CI or production environment, add waiting for dynamic content
+                // Keep it short to avoid Browserless.io timeout (free tier ~30-60s limit)
                 if (process.env.GITHUB_ACTIONS || process.env.NODE_ENV === 'production') {
                     const envType = process.env.GITHUB_ACTIONS ? 'CI' : 'Production';
-                    console.log(`🔍 ${envType} environment detected, applying aggressive loading strategy...`);
-                    // Phase 1: Extended initial wait with longer timeouts for CI
-                    const baseWaitTime = process.env.NODE_ENV === 'production' ? 20000 : (process.env.GITHUB_ACTIONS ? 25000 : 15000);
-                    console.log(`⏳ Phase 1: Initial wait (${baseWaitTime}ms)`);
-                    await this.page.waitForTimeout(baseWaitTime);
-                    // Phase 2: Aggressive content triggering with multiple attempts
-                    for (let attempt = 1; attempt <= 4; attempt++) {
-                        console.log(`🔄 Phase 2: Content loading attempt ${attempt}/4`);
-                        try {
-                            await this.page.evaluate(() => {
-                                // Multiple scroll patterns to trigger lazy loading
-                                window.scrollTo(0, 0);
-                                window.scrollTo(0, document.body.scrollHeight);
-                                window.scrollTo(0, document.body.scrollHeight / 2);
-                                window.scrollTo(0, document.body.scrollHeight);
-                                // Simulate user interactions that might trigger content loading
-                                document.body.click();
-                                document.body.focus();
-                                // Dispatch various events that might trigger dynamic loading
-                                ['DOMContentLoaded', 'load', 'resize', 'scroll'].forEach(eventType => {
-                                    const event = new Event(eventType, { bubbles: true, cancelable: true });
-                                    document.dispatchEvent(event);
-                                    window.dispatchEvent(event);
-                                });
-                                // Force jQuery ready if available
-                                if (typeof window.jQuery !== 'undefined') {
-                                    window.jQuery(document).ready();
-                                    window.jQuery(document).trigger('ready');
-                                }
-                                // Trigger mouseover on all interactive elements
-                                const interactiveElements = document.querySelectorAll('a, button, [onclick], [data-toggle], .clickable');
-                                interactiveElements.forEach(el => {
-                                    el.dispatchEvent(new Event('mouseover', { bubbles: true }));
-                                    el.dispatchEvent(new Event('mouseenter', { bubbles: true }));
-                                });
-                            });
-                            await this.page.waitForTimeout(5000);
-                            // Quick check for table appearance
-                            const tableCheck = await this.page.$$('table');
-                            if (tableCheck.length > 0) {
-                                console.log(`✅ Tables detected after attempt ${attempt}`);
-                                break;
-                            }
-                        }
-                        catch (triggerError) {
-                            console.log(`⚠️ Content trigger attempt ${attempt} failed:`, triggerError.message);
-                        }
-                    }
-                    // Phase 3: Environment-specific additional interactions
-                    if (process.env.NODE_ENV === 'production') {
-                        console.log('🔍 Production environment specific optimizations...');
-                        await this.page.evaluate(() => {
-                            // Force trigger all possible event handlers
-                            const allElements = document.querySelectorAll('*');
-                            allElements.forEach(el => {
-                                ['focus', 'blur', 'click', 'mouseover', 'mouseout'].forEach(eventType => {
-                                    try {
-                                        el.dispatchEvent(new Event(eventType, { bubbles: true }));
-                                    }
-                                    catch (e) { /* ignore */ }
-                                });
-                            });
-                        });
-                        await this.page.waitForTimeout(8000);
-                    }
-                    // Phase 4: Extended wait for AJAX and script completion
-                    console.log(`⏳ Phase 4: Waiting for script completion`);
+                    console.log(`🔍 ${envType} environment detected, waiting for content...`);
+                    // Short initial wait for dynamic content
+                    await this.page.waitForTimeout(5000);
+                    // Try to trigger content loading
                     try {
-                        await this.page.waitForFunction(() => {
-                            const hasJQuery = typeof window.jQuery !== 'undefined';
-                            const domComplete = document.readyState === 'complete';
-                            const noActiveRequests = !window.jQuery || window.jQuery.active === 0;
-                            const hasImages = document.images.length === 0 ||
-                                Array.from(document.images).every(img => img.complete);
-                            return domComplete && (!hasJQuery || noActiveRequests) && hasImages;
-                        }, {
-                            timeout: process.env.GITHUB_ACTIONS ? 60000 : 45000,
-                            polling: 3000
+                        await this.page.evaluate(() => {
+                            window.scrollTo(0, document.body.scrollHeight);
+                            window.scrollTo(0, 0);
                         });
-                        console.log(`✅ ${envType} page fully loaded and scripts complete`);
                     }
-                    catch (completionError) {
-                        console.log('⚠️ Script completion wait failed, continuing with timeout fallback');
-                        await this.page.waitForTimeout(15000);
+                    catch (e) {
+                        console.log('⚠️ Scroll trigger failed, continuing...');
                     }
-                    // Phase 5: Final forced refresh for CI if still no content
-                    if (process.env.GITHUB_ACTIONS) {
-                        const finalCheck = await this.page.$$('table');
-                        if (finalCheck.length === 0) {
-                            console.log(`🔄 CI final attempt: Forced page refresh`);
-                            const currentUrl = this.page.url();
-                            await this.page.goto(currentUrl, {
-                                waitUntil: 'networkidle2',
-                                timeout: 180000
-                            });
-                            await this.page.waitForTimeout(30000);
-                        }
-                    }
-                    console.log(`🔍 ${envType} aggressive loading strategy complete`);
+                    // Brief additional wait
+                    await this.page.waitForTimeout(3000);
+                    console.log(`🔍 ${envType} content loading complete`);
                 }
                 // Try multiple possible table selectors
                 const possibleSelectors = [
@@ -1145,20 +1050,18 @@ class ReservationChecker {
                     }
                 }
                 if (!foundTable) {
-                    // Extra attempts for CI environment
-                    if (process.env.GITHUB_ACTIONS) {
-                        console.log('🔄 CI retry: Attempting page refresh and reload...');
-                        const currentUrl = this.page.url();
-                        await this.page.goto(currentUrl, { waitUntil: 'networkidle2' });
-                        await this.page.waitForTimeout(15000);
+                    // Quick retry for CI/production environment
+                    if (process.env.GITHUB_ACTIONS || process.env.NODE_ENV === 'production') {
+                        console.log('🔄 Retry: Quick page check...');
+                        await this.page.waitForTimeout(2000);
                         // Try to find any table again
                         for (const selector of possibleSelectors) {
                             try {
                                 await this.page.waitForSelector(selector, {
-                                    timeout: 10000,
+                                    timeout: 3000,
                                     state: 'visible'
                                 });
-                                console.log(`✅ Found table after refresh with selector: ${selector}`);
+                                console.log(`✅ Found table on retry with selector: ${selector}`);
                                 foundTable = true;
                                 usedSelector = selector;
                                 break;
@@ -1254,35 +1157,16 @@ class ReservationChecker {
                         console.log('⚠️ Failed to save debugging artifacts:', debugError.message);
                     }
                 }
-                // Check for loading indicators
-                const loadingElements = await this.page.$$('.loading, .spinner, [data-loading="true"]');
-                if (loadingElements.length > 0) {
-                    console.log('🔄 Loading indicators still present, waiting longer...');
-                    await this.page.waitForTimeout(15000);
-                    // Try all selectors again after waiting
-                    const retrySelectors = [
-                        "table.reservation-list.secondary-list",
-                        "table.reservation-list",
-                        "table.secondary-list",
-                        ".reservation-list table",
-                        "#upcoming-resv table",
-                        "table[class*='reservation']",
-                        "table[class*='list']",
-                        "table"
-                    ];
-                    for (const selector of retrySelectors) {
-                        try {
-                            await this.page.waitForSelector(selector, {
-                                timeout: 10000,
-                                state: 'visible'
-                            });
-                            console.log(`✅ Found table after extended wait with selector: ${selector}`);
-                            return; // Success, exit the function
-                        }
-                        catch (retryError) {
-                            continue;
-                        }
+                // Quick check for loading indicators - don't wait too long to avoid browser timeout
+                try {
+                    const loadingElements = await this.page.$$('.loading, .spinner, [data-loading="true"]');
+                    if (loadingElements.length > 0) {
+                        console.log('🔄 Loading indicators present, brief wait...');
+                        await this.page.waitForTimeout(3000);
                     }
+                }
+                catch (e) {
+                    // Browser might be closed, ignore
                 }
                 throw error;
             }

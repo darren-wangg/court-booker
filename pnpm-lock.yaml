@@ -39,7 +39,7 @@ importers:
       dotenv:
         specifier: ^17.2.2
         version: 17.2.2
-      playwright:
+      playwright-core:
         specifier: ^1.40.0
         version: 1.56.0
       puppeteer:
@@ -52,6 +52,9 @@ importers:
       '@types/node':
         specifier: ^20.10.0
         version: 20.19.29
+      playwright:
+        specifier: ^1.40.0
+        version: 1.56.0
       typescript:
         specifier: ^5.3.3
         version: 5.9.3

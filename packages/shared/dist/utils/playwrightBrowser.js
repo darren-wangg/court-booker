@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlaywrightBrowser = void 0;
-const playwright_1 = require("playwright");
+// Use playwright-core for serverless environments (no browser binaries)
+// Full playwright package is only needed for local development
+const playwright_core_1 = require("playwright-core");
 /**
  * Playwright Browser Service - Drop-in replacement for Puppeteer
  * Keeps all existing selectors and logic intact
@@ -13,7 +15,7 @@ class PlaywrightBrowser {
     }
     async connect(browserWSEndpoint) {
         console.log('🌐 Connecting to remote browser via WebSocket...');
-        this.browser = await playwright_1.chromium.connect(browserWSEndpoint);
+        this.browser = await playwright_core_1.chromium.connect(browserWSEndpoint);
         return {
             newPage: async () => {
                 const page = await this.browser.newPage();
@@ -57,7 +59,7 @@ class PlaywrightBrowser {
             ];
         }
         console.log('🎭 Launching Playwright Chromium...');
-        this.browser = await playwright_1.chromium.launch(playwrightOptions);
+        this.browser = await playwright_core_1.chromium.launch(playwrightOptions);
         return {
             newPage: async () => {
                 const page = await this.browser.newPage();

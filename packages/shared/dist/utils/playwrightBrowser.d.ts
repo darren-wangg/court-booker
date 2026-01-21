@@ -1,4 +1,4 @@
-import { Page } from 'playwright';
+import { Page } from 'playwright-core';
 interface PuppeteerCompatiblePage {
     goto: (url: string, options?: {
         waitUntil?: string;
