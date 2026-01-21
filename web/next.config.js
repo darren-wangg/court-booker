@@ -8,11 +8,10 @@ const nextConfig = {
   transpilePackages: ['@court-booker/shared'],
 
   // For Puppeteer/Playwright in serverless (Browserless.io via WebSocket)
-  // Note: playwright-core is lightweight (API only, no browsers) and can be bundled
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Exclude puppeteer (has native binaries) but allow playwright-core to be bundled
-      config.externals = [...(config.externals || []), 'puppeteer'];
+      // Mark as external - Vercel will install these from package.json
+      config.externals = [...(config.externals || []), 'puppeteer', 'playwright-core'];
     }
     return config;
   },
