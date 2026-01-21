@@ -5,7 +5,6 @@ export { default as BookingService } from './services/bookingService';
 // Export utils
 export * from './utils/supabaseClient';
 export { PlaywrightBrowser } from './utils/playwrightBrowser';
-export { CloudChrome } from './utils/cloudChrome';
 
 // Export config
 export * from './config';

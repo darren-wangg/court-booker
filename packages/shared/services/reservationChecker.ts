@@ -4,7 +4,6 @@ import { PlaywrightBrowser } from "../utils/playwrightBrowser";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { getUser, User, amenityUrl, timeouts } from "../config";
-import { CloudChrome } from "../utils/cloudChrome";
 
 // Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
@@ -51,7 +50,7 @@ export default class ReservationChecker {
       // Cloud-optimized Chrome configuration
       if (isCloudEnv) {
         console.log('🌐 Cloud environment detected - using optimized Chrome configuration');
-        return this.initializeCloudChrome();
+        return this.initializeOptimizedBrowser();
       }
       
       console.log('🌐 Initializing Puppeteer browser...');
@@ -239,7 +238,7 @@ export default class ReservationChecker {
     }
   }
 
-  async initializeCloudChrome() {
+  async initializeOptimizedBrowser() {
     try {
       console.log('🌐 Initializing cloud-optimized Chrome with enhanced resource management...');
       

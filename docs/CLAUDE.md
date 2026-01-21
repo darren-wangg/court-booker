@@ -16,48 +16,53 @@ This is an automated amenity reservation system that:
 
 Two major flows:
 
-- **Availability flow**: GitHub Actions → `check-now.js` → `ReservationChecker` → Browserless.io (cloud browser) → amenity site → Supabase
+- **Availability flow (GitHub Actions)**: GitHub Actions → `check-now.ts` → `ReservationChecker` → local Playwright browser → amenity site → Supabase
+- **Availability flow (Vercel)**: Web UI refresh → Next.js API route → `ReservationChecker` → Browserless.io (cloud browser) → amenity site → Supabase
 - **Booking flow**: Web UI → Next.js API route → `BookingService` → Browserless.io (cloud browser) → amenity site → confirmation
 
 ## Current Tooling & Runtime Stack
 
 - **Node.js** with **TypeScript** and **pnpm**
-- **Playwright** (`src/utils/playwrightBrowser.ts`) as the primary browser driver, with **Puppeteer** + **CloudChrome** as compatibility layers
-- **Browserless.io** for cloud browser automation via WebSocket (replaces local Chrome and DigitalOcean)
-- **Supabase** for data persistence (`src/utils/supabaseClient.ts`)
+- **Playwright-core** (`packages/shared/utils/playwrightBrowser.ts`) as the sole browser driver
+  - Lightweight (API only, no bundled browsers)
+  - Works in serverless (Vercel) with Browserless.io
+  - Works locally/in GitHub Actions with installed Playwright browsers
+- **Browserless.io** for cloud browser automation in Vercel serverless
+- **Supabase** for data persistence (`packages/shared/utils/supabaseClient.ts`)
 - **Next.js** for the frontend web application (`web/`) - deployed on Vercel
-- **GitHub Actions** for scheduled availability checks (4x daily)
+- **GitHub Actions** for scheduled availability checks (uses local Playwright, not Browserless)
 - **No dedicated server needed** - everything runs serverless!
 
 ## Core Services & Where to Hook Changes
 
 When modifying behavior, prefer adjusting these existing services:
 
-- **`src/services/reservationChecker.ts`**
+- **`packages/shared/services/reservationChecker.ts`**
   - Heart of the availability flow
-  - Uses `PlaywrightBrowser`, `CloudChrome`, and **Browserless.io** support with multiple selector strategies to:
+  - Uses `PlaywrightBrowser` with multiple selector strategies to:
     - Login → load tables (with aggressive CI + cloud hacks)
     - Click "show more" repeatedly and dedupe results across pages
     - Generate canonical time slots (10AM–10PM) and compute available vs booked
   - Auto-detects `BROWSERLESS_TOKEN` env var and connects to cloud browser via WebSocket
+  - Falls back to local Playwright browser when no token (GitHub Actions, local dev)
   - Returns structured availability data (no email sending)
 
-- **`src/services/bookingService.ts`**
+- **`packages/shared/services/bookingService.ts`**
   - Handles **actual bookings** against the amenity site
   - Does: browser init → login → datepicker interaction → time dropdown selection → submit + success detection
   - Auto-detects `BROWSERLESS_TOKEN` env var and connects to cloud browser via WebSocket
-  - Called directly by Next.js API routes (`web/app/api/book/route.ts`)
+  - Called directly by Next.js API routes (`web/app/api/booking/route.ts`)
 
-- **`src/utils/supabaseClient.ts`**
+- **`packages/shared/utils/supabaseClient.ts`**
   - Handles all Supabase database operations
   - Functions: `saveAvailabilitySnapshot`, `getLatestSnapshot`, `getRecentSnapshots`
-  - Used by `check-now.js` and the Worker API
+  - Used by `check-now.ts` and the API routes
 
-- **`src/api/worker-server.ts`** (DEPRECATED - No longer needed!)
-  - Old Express server that used to run on DigitalOcean droplet
-  - **No longer used** - Next.js API routes now call services directly
-  - Kept for reference but can be removed
-  - With Browserless.io, everything runs serverless in Vercel!
+- **`packages/shared/utils/playwrightBrowser.ts`**
+  - Unified browser interface for both local and remote (Browserless.io) browsers
+  - `connect(wsEndpoint)` - Connect to Browserless.io via WebSocket
+  - `launch(options)` - Launch local Chromium browser
+  - Returns Puppeteer-compatible page interface for consistency
 
 - **`src/config.ts`**
   - Central config: parses **multi-user** envs (USER1_EMAIL, USER2_EMAIL, …) with a legacy single-user fallback
@@ -149,8 +154,9 @@ When you add new behavior, **honor these flags** instead of adding ad-hoc reads 
 ## Non-goals / Things to Avoid
 
 - Do **not** introduce email sending; the amenity site sends confirmations
-- Do **not** remove cloud/CI hacks in `ReservationChecker` and `CloudChrome` without supplying an equivalent or better robustness strategy
-- Do **not** hardcode credentials or URLs; always use env + `src/config.ts`
+- Do **not** remove cloud/CI hacks in `ReservationChecker` without supplying an equivalent or better robustness strategy
+- Do **not** hardcode credentials or URLs; always use env + `packages/shared/config.ts`
 - Do **not** assume GitHub Actions is the only scheduler; manual triggers via web UI are first-class
 - Do **not** reintroduce the DigitalOcean worker server pattern; use Browserless.io for browser automation
-- Do **not** add local Chrome/Puppeteer dependencies to the web package; use Browserless.io
+- Do **not** add puppeteer or heavy browser dependencies to the web package; use playwright-core only
+- Do **not** try to launch local Chrome in Vercel serverless; use Browserless.io

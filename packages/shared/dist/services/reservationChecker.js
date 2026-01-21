@@ -41,7 +41,7 @@ class ReservationChecker {
             // Cloud-optimized Chrome configuration
             if (isCloudEnv) {
                 console.log('🌐 Cloud environment detected - using optimized Chrome configuration');
-                return this.initializeCloudChrome();
+                return this.initializeOptimizedBrowser();
             }
             console.log('🌐 Initializing Puppeteer browser...');
             // Enhanced configuration with CI-specific optimizations
@@ -201,7 +201,7 @@ class ReservationChecker {
             throw error; // Let initialize() handle the fallback to local Chrome
         }
     }
-    async initializeCloudChrome() {
+    async initializeOptimizedBrowser() {
         try {
             console.log('🌐 Initializing cloud-optimized Chrome with enhanced resource management...');
             // Optimized Chrome configuration for cloud environment with context recovery

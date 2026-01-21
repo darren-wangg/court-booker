@@ -7,11 +7,11 @@ const nextConfig = {
   // Monorepo: Enable transpilation of shared package
   transpilePackages: ['@court-booker/shared'],
 
-  // For Puppeteer/Playwright in serverless (Browserless.io via WebSocket)
+  // For Playwright in serverless (Browserless.io via WebSocket)
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Mark as external - Vercel will install these from package.json
-      config.externals = [...(config.externals || []), 'puppeteer', 'playwright-core'];
+      // Mark playwright-core as external - Vercel will install from package.json
+      config.externals = [...(config.externals || []), 'playwright-core'];
     }
     return config;
   },

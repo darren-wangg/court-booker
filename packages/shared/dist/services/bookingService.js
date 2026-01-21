@@ -1,12 +1,7 @@
 "use strict";
 // @ts-nocheck
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const puppeteer_1 = __importDefault(require("puppeteer"));
 const config_1 = require("../config");
-const cloudChrome_1 = require("../utils/cloudChrome");
 const playwrightBrowser_1 = require("../utils/playwrightBrowser");
 class BookingService {
     constructor(userId = null) {
@@ -33,11 +28,9 @@ class BookingService {
                 console.log('🌐 Production cloud environment detected - using optimized Chrome for booking');
                 return this.initializeCloudBookingChrome();
             }
-            // Standard Chrome initialization for local development
+            // Standard Chrome initialization for local development using PlaywrightBrowser
             const launchOptions = {
                 headless: true,
-                defaultViewport: null,
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
                 args: [
                     "--no-sandbox",
                     "--disable-setuid-sandbox",
@@ -45,13 +38,11 @@ class BookingService {
                     "--disable-gpu",
                     "--no-first-run"
                 ],
-                timeout: 60000,
-                handleSIGINT: false,
-                handleSIGTERM: false,
-                handleSIGHUP: false
+                timeout: 60000
             };
             try {
-                this.browser = await puppeteer_1.default.launch(launchOptions);
+                const playwrightBrowser = new playwrightBrowser_1.PlaywrightBrowser();
+                this.browser = await playwrightBrowser.launch(launchOptions);
                 console.log('✅ Booking browser launched successfully');
             }
             catch (error) {
@@ -116,9 +107,24 @@ class BookingService {
     async initializeCloudBookingChrome() {
         try {
             console.log('🌐 Initializing cloud booking Chrome...');
-            // Use CloudChrome for optimized cloud environment settings
+            // In serverless (Vercel), we can't launch local Chrome
+            // This fallback is only for non-serverless production environments
+            const launchOptions = {
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--single-process'
+                ],
+                timeout: 30000
+            };
             try {
-                this.browser = await cloudChrome_1.CloudChrome.launchWithRetries(3);
+                const playwrightBrowser = new playwrightBrowser_1.PlaywrightBrowser();
+                this.browser = await playwrightBrowser.launch(launchOptions);
                 console.log('✅ Cloud booking Chrome launched');
                 this.page = await this.browser.newPage();
                 this.page.setDefaultNavigationTimeout(30000);
@@ -127,6 +133,7 @@ class BookingService {
             }
             catch (error) {
                 console.error('❌ Cloud booking Chrome failed:', error.message);
+                console.log('💡 In serverless environments, set BROWSERLESS_TOKEN for browser automation');
                 this.resourceConstraint = true;
                 this.browser = null;
                 this.page = null;

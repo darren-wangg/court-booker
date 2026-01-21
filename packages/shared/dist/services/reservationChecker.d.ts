@@ -6,7 +6,7 @@ export default class ReservationChecker {
     constructor(userId?: number | null);
     initialize(): Promise<void>;
     initializeBrowserlessChrome(token: any): Promise<void>;
-    initializeCloudChrome(): Promise<void>;
+    initializeOptimizedBrowser(): Promise<void>;
     forceProcessCleanup(): Promise<void>;
     checkAvailabilityFallback(): Promise<{
         success: boolean;

@@ -17,7 +17,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CloudChrome = exports.PlaywrightBrowser = exports.BookingService = exports.ReservationChecker = void 0;
+exports.PlaywrightBrowser = exports.BookingService = exports.ReservationChecker = void 0;
 // Export services
 var reservationChecker_1 = require("./services/reservationChecker");
 Object.defineProperty(exports, "ReservationChecker", { enumerable: true, get: function () { return __importDefault(reservationChecker_1).default; } });
@@ -27,8 +27,6 @@ Object.defineProperty(exports, "BookingService", { enumerable: true, get: functi
 __exportStar(require("./utils/supabaseClient"), exports);
 var playwrightBrowser_1 = require("./utils/playwrightBrowser");
 Object.defineProperty(exports, "PlaywrightBrowser", { enumerable: true, get: function () { return playwrightBrowser_1.PlaywrightBrowser; } });
-var cloudChrome_1 = require("./utils/cloudChrome");
-Object.defineProperty(exports, "CloudChrome", { enumerable: true, get: function () { return cloudChrome_1.CloudChrome; } });
 // Export config
 __exportStar(require("./config"), exports);
 //# sourceMappingURL=index.js.map

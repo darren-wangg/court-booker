@@ -35,13 +35,13 @@ Automated amenity reservation system with availability checking and booking auto
 ## 💻 Tech Stack
 
 - **Runtime**: Node.js with TypeScript
-- **Browser Automation**: Playwright/Puppeteer + **Browserless.io** cloud browser service
+- **Browser Automation**: Playwright-core + **Browserless.io** cloud browser service
 - **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
 - **Database**: Supabase (PostgreSQL)
 - **Deployment**:
   - **Vercel** - Frontend + API routes (fully serverless)
-  - **GitHub Actions** - Scheduled availability checks
-  - **Browserless.io** - Cloud browser automation (no local Chrome!)
+  - **GitHub Actions** - Scheduled availability checks (uses local Playwright)
+  - **Browserless.io** - Cloud browser automation for Vercel serverless
 
 ---
 
@@ -62,8 +62,9 @@ Quick overview:
 - No server or Chrome installation needed!
 
 ### 3. GitHub Actions
-- Add secrets: `BROWSERLESS_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, user credentials
-- Workflow runs automatically 5x daily
+- Add secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, user credentials
+- Workflow runs automatically using local Playwright (no Browserless needed)
+- Uses installed Playwright browsers directly on the runner
 
 ### 4. Vercel Deployment
 - Import GitHub repo
@@ -166,19 +167,16 @@ pnpm build
 
 ```
 court-booker/
-├── src/
-│   ├── scripts/
-│   │   └── check-now.ts              # CLI availability check script
+├── packages/shared/                  # Shared package (browser automation, services)
 │   ├── services/
-│   │   ├── reservationChecker.ts    # Core availability checking (with Browserless support)
-│   │   └── bookingService.ts        # Booking automation (with Browserless support)
+│   │   ├── reservationChecker.ts    # Core availability checking
+│   │   └── bookingService.ts        # Booking automation
 │   ├── utils/
-│   │   ├── cloudChrome.ts           # Cloud-optimized Chrome config (fallback)
-│   │   ├── playwrightBrowser.ts     # Playwright browser wrapper (Browserless connector)
+│   │   ├── playwrightBrowser.ts     # Playwright browser wrapper (local + Browserless)
 │   │   └── supabaseClient.ts        # Supabase database operations
-│   ├── config.ts                     # Configuration management
-│   └── api/
-│       └── worker-server.ts          # [DEPRECATED] Old DigitalOcean worker (no longer used)
+│   └── config.ts                     # Configuration management
+├── scripts/
+│   └── check-now.ts                  # CLI availability check script
 ├── web/                              # Next.js frontend (deployed on Vercel)
 │   ├── app/
 │   │   ├── api/                     # Serverless API routes
