@@ -1,1 +1,3 @@
-{}
+{
+  "buildCommand": "cd .. && pnpm --filter @court-booker/shared build && cd web && pnpm build"
+}
