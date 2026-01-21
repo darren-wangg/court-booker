@@ -1,4 +1,6 @@
-import { chromium, Browser, Page, BrowserContext } from 'playwright';
+// Use playwright-core for serverless environments (no browser binaries)
+// Full playwright package is only needed for local development
+import { chromium, Browser, Page, BrowserContext } from 'playwright-core';
 
 interface PuppeteerCompatiblePage {
   goto: (url: string, options?: { waitUntil?: string; timeout?: number }) => Promise<any>;
