@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import Spinner from './components/Spinner'
 import { useUsers } from './queries/useUsers'
-import { useAvailability, useRefreshAvailability, useBookSlot, DateInfo } from './queries/useAvailabilities'
+import { useAvailability, useRefreshAvailability, useBookSlot, useBookings, DateInfo, UserBooking } from './queries/useAvailabilities'
 
 // Parse a date string like "Saturday January 18, 2025" or "January 18, 2025"
 function parseDateString(dateStr: string): Date | null {
@@ -59,8 +59,42 @@ export default function Home() {
   // React Query hooks
   const { data: users, isLoading: isUsersLoading } = useUsers()
   const { data: availability, isLoading: isAvailabilityLoading, error: availabilityError } = useAvailability(selectedUserId)
+  const { data: bookingsData } = useBookings(selectedUserId)
   const refreshMutation = useRefreshAvailability()
   const bookMutation = useBookSlot()
+
+  // Booking state
+  const hasBookingThisWeek = bookingsData?.hasBookingThisWeek || false
+  const userBookingThisWeek = bookingsData?.userBookingThisWeek || null
+  const allBookingsInRange = bookingsData?.allBookingsInRange || []
+
+  // Helper to check if a slot is booked by someone
+  const isSlotBooked = (dateStr: string, timeSlot: string): UserBooking | null => {
+    const booking = allBookingsInRange.find(b => {
+      // Parse the date from the availability format (e.g., "Saturday January 25, 2025")
+      const bookingDateObj = new Date(b.booking_date)
+      const parsedDate = parseDateString(dateStr)
+      if (!parsedDate) return false
+
+      return (
+        bookingDateObj.toDateString() === parsedDate.toDateString() &&
+        b.time_formatted === timeSlot
+      )
+    })
+    return booking || null
+  }
+
+  // Check if a slot is the user's own booking
+  const isMyBooking = (dateStr: string, timeSlot: string): boolean => {
+    if (!userBookingThisWeek) return false
+    const bookingDateObj = new Date(userBookingThisWeek.booking_date)
+    const parsedDate = parseDateString(dateStr)
+    if (!parsedDate) return false
+    return (
+      bookingDateObj.toDateString() === parsedDate.toDateString() &&
+      userBookingThisWeek.time_formatted === timeSlot
+    )
+  }
 
   // Set initial user when users are loaded
   useEffect(() => {
@@ -89,6 +123,12 @@ export default function Home() {
   }
 
   const handleBook = (date: string, timeSlot: string) => {
+    // Check booking limit before attempting
+    if (hasBookingThisWeek) {
+      toast.error(`You already have a booking this week: ${userBookingThisWeek?.time_formatted} on ${new Date(userBookingThisWeek?.booking_date || '').toLocaleDateString()}`)
+      return
+    }
+
     triggerBasketballAnimation('shoot')
     const toastId = toast.loading('Booking court...')
 
@@ -223,6 +263,16 @@ export default function Home() {
           </div>
         </div>
 
+        {/* User's booking banner */}
+        {hasBookingThisWeek && userBookingThisWeek && (
+          <div className="bg-green-50 border-l-4 border-green-500 p-3 md:p-4 mx-4 md:mx-6 mt-3 md:mt-4 rounded">
+            <p className="text-green-800 text-sm font-medium">
+              ✅ You have a booking this week: {userBookingThisWeek.time_formatted} on {new Date(userBookingThisWeek.booking_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+            <p className="text-green-600 text-xs mt-1">Limit: 1 booking per week</p>
+          </div>
+        )}
+
         {/* Error banner */}
         {refreshMutation.error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-6 mt-4 rounded">
@@ -283,26 +333,34 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="flex-1 overflow-auto p-2 space-y-2">
-                        {availableSlots.map((slot: string, slotIdx: number) => (
-                          <div
-                            key={slotIdx}
-                            className="flex flex-col gap-2 bg-gray-50 p-2 rounded-lg"
-                          >
-                            <span className="text-xs text-gray-700">
-                              {slot}
-                            </span>
-                            {!isSameDay && (
-                              <button
-                                onClick={() => handleBook(dateInfo.date, slot)}
-                                disabled={bookMutation.isPending}
-                                className="w-7 h-7 rounded-lg transition disabled:opacity-50 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
-                                title="Book this slot"
-                              >
-                                🏀
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {availableSlots.map((slot: string, slotIdx: number) => {
+                          const myBooking = isMyBooking(dateInfo.date, slot)
+                          const bookedBy = isSlotBooked(dateInfo.date, slot)
+                          const canBook = !isSameDay && !hasBookingThisWeek && !bookedBy
+
+                          return (
+                            <div
+                              key={slotIdx}
+                              className={`flex flex-col gap-2 p-2 rounded-lg ${myBooking ? 'bg-green-100 border border-green-300' : bookedBy ? 'bg-gray-200' : 'bg-gray-50'}`}
+                            >
+                              <span className={`text-xs ${myBooking ? 'text-green-800 font-medium' : bookedBy ? 'text-gray-500' : 'text-gray-700'}`}>
+                                {slot}
+                                {myBooking && <span className="ml-1 text-green-600">(Your booking)</span>}
+                                {bookedBy && !myBooking && <span className="ml-1 text-gray-400">(Booked)</span>}
+                              </span>
+                              {canBook && (
+                                <button
+                                  onClick={() => handleBook(dateInfo.date, slot)}
+                                  disabled={bookMutation.isPending}
+                                  className="w-7 h-7 rounded-lg transition disabled:opacity-50 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
+                                  title="Book this slot"
+                                >
+                                  🏀
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -336,26 +394,34 @@ export default function Home() {
                       </div>
                     ) : (
                       <div className="flex-1 overflow-auto p-3 space-y-2">
-                        {availableSlots.map((slot: string, slotIdx: number) => (
-                          <div
-                            key={slotIdx}
-                            className="flex justify-between items-center bg-gray-50 p-3 rounded-lg"
-                          >
-                            <span className="text-sm text-gray-700 flex-1">
-                              {slot}
-                            </span>
-                            {!isSameDay && (
-                              <button
-                                onClick={() => handleBook(dateInfo.date, slot)}
-                                disabled={bookMutation.isPending}
-                                className="w-8 h-8 rounded-lg transition ml-2 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
-                                title="Book this slot"
-                              >
-                                🏀
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                        {availableSlots.map((slot: string, slotIdx: number) => {
+                          const myBooking = isMyBooking(dateInfo.date, slot)
+                          const bookedBy = isSlotBooked(dateInfo.date, slot)
+                          const canBook = !isSameDay && !hasBookingThisWeek && !bookedBy
+
+                          return (
+                            <div
+                              key={slotIdx}
+                              className={`flex justify-between items-center p-3 rounded-lg ${myBooking ? 'bg-green-100 border border-green-300' : bookedBy ? 'bg-gray-200' : 'bg-gray-50'}`}
+                            >
+                              <span className={`text-sm flex-1 ${myBooking ? 'text-green-800 font-medium' : bookedBy ? 'text-gray-500' : 'text-gray-700'}`}>
+                                {slot}
+                                {myBooking && <span className="ml-2 text-green-600 text-xs">(Your booking)</span>}
+                                {bookedBy && !myBooking && <span className="ml-2 text-gray-400 text-xs">(Booked)</span>}
+                              </span>
+                              {canBook && (
+                                <button
+                                  onClick={() => handleBook(dateInfo.date, slot)}
+                                  disabled={bookMutation.isPending}
+                                  className="w-8 h-8 rounded-lg transition ml-2 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
+                                  title="Book this slot"
+                                >
+                                  🏀
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

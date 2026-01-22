@@ -49,6 +49,26 @@ interface BookingResponse {
   error?: string;
 }
 
+export interface UserBooking {
+  id: string;
+  user_id: number;
+  user_email: string;
+  booking_date: string;
+  start_hour: number;
+  end_hour: number;
+  time_formatted: string;
+  week_start: string;
+  status: string;
+}
+
+interface BookingsResponse {
+  success: boolean;
+  userBookingThisWeek: UserBooking | null;
+  hasBookingThisWeek: boolean;
+  allBookingsInRange: UserBooking[];
+  error?: string;
+}
+
 async function fetchAvailability(userId: number | null): Promise<AvailabilityData> {
   const params = userId ? `?userId=${userId}` : ''
   const response = await fetch(`/api/availability/latest${params}`)
@@ -74,6 +94,26 @@ async function refreshAvailability(userId: number | null): Promise<RefreshRespon
 
   if (!result.success) {
     throw new Error(result.error || 'Failed to trigger refresh')
+  }
+
+  return result
+}
+
+async function fetchBookings(userId: number | null): Promise<BookingsResponse> {
+  if (!userId) {
+    return {
+      success: true,
+      userBookingThisWeek: null,
+      hasBookingThisWeek: false,
+      allBookingsInRange: [],
+    }
+  }
+
+  const response = await fetch(`/api/bookings?userId=${userId}`)
+  const result: BookingsResponse = await response.json()
+
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to fetch bookings')
   }
 
   return result
@@ -124,14 +164,24 @@ export function useRefreshAvailability() {
   })
 }
 
+export function useBookings(userId: number | null) {
+  return useQuery({
+    queryKey: ['bookings', userId],
+    queryFn: () => fetchBookings(userId),
+    enabled: userId !== null,
+    staleTime: 30 * 1000, // 30 seconds
+  })
+}
+
 export function useBookSlot() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: bookSlot,
     onSuccess: (_, variables) => {
-      // Invalidate availability after booking
+      // Invalidate availability and bookings after booking
       queryClient.invalidateQueries({ queryKey: ['availability', variables.userId] })
+      queryClient.invalidateQueries({ queryKey: ['bookings', variables.userId] })
     },
   })
 }

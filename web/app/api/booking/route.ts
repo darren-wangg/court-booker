@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { BookingService } from '@court-booker/shared';
+import { BookingService, getUser, saveBooking, getUserBookingThisWeek, markSlotAsBooked } from '@court-booker/shared';
 
 // Force this route to be dynamic (not statically optimized)
 export const dynamic = 'force-dynamic';
@@ -144,9 +144,58 @@ export async function POST(request: NextRequest) {
 
     console.log(`🏀 Processing booking: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
 
+    // Get user info for booking record
+    const user = getUser(userId || null);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found', details: 'Invalid or missing user ID' },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Check if user already has a booking this week
+    try {
+      const existingBooking = await getUserBookingThisWeek(user.id, bookingDate);
+      if (existingBooking) {
+        return NextResponse.json({
+          success: false,
+          error: 'Booking limit reached',
+          message: `You already have a booking this week: ${existingBooking.booking_date} at ${existingBooking.time_formatted}`,
+          existingBooking,
+        }, { status: 409, headers: corsHeaders });
+      }
+    } catch (checkError: any) {
+      // Log but don't block - the check is a nice-to-have safety
+      console.warn('⚠️ Could not check existing bookings:', checkError.message);
+    }
+
     // Run booking directly via BookingService (uses env variables for credentials)
     const bookingService = new BookingService(userId || null);
     const result = await bookingService.bookTimeSlot(bookingRequest);
+
+    // If booking succeeded, save to Supabase and update availability
+    if (result.success) {
+      try {
+        // Save booking record
+        await saveBooking(
+          user.id,
+          user.email,
+          bookingDate,
+          timeSlot.startHour,
+          timeSlot.endHour,
+          timeSlot.formatted,
+          { bookingResult: result }
+        );
+
+        // Update availability snapshot to remove the booked slot
+        await markSlotAsBooked(bookingRequest.formatted.date, timeSlot.formatted);
+
+        console.log('✅ Booking saved to database and availability updated');
+      } catch (saveError: any) {
+        // Log but don't fail - the booking was successful on the amenity site
+        console.error('⚠️ Failed to save booking to database:', saveError.message);
+      }
+    }
 
     return NextResponse.json({
       success: result.success,

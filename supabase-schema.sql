@@ -112,3 +112,79 @@ BEGIN
   END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-- =============================================
+-- BOOKINGS TABLE
+-- Tracks user bookings and enforces 1-per-week limit
+-- =============================================
+
+-- Create bookings table
+CREATE TABLE IF NOT EXISTS bookings (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  user_id INTEGER NOT NULL,
+  user_email TEXT NOT NULL,
+  booking_date DATE NOT NULL,
+  start_hour INTEGER NOT NULL CHECK (start_hour >= 0 AND start_hour <= 23),
+  end_hour INTEGER NOT NULL CHECK (end_hour >= 0 AND end_hour <= 24),
+  time_formatted TEXT NOT NULL, -- e.g., "5:00 PM - 6:00 PM"
+  week_start DATE NOT NULL, -- Monday of the booking week (for 1-per-week constraint)
+  status TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled')),
+  metadata JSONB -- Additional booking info (confirmation details, etc.)
+);
+
+-- Create index for fast user+week lookups (1-per-week constraint)
+CREATE INDEX IF NOT EXISTS idx_bookings_user_week
+  ON bookings(user_id, week_start);
+
+-- Create index on booking_date for date-based queries
+CREATE INDEX IF NOT EXISTS idx_bookings_date
+  ON bookings(booking_date);
+
+-- Create index on user_email for email-based lookups
+CREATE INDEX IF NOT EXISTS idx_bookings_email
+  ON bookings(user_email);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Allow service role to do everything
+CREATE POLICY "Service role can do everything on bookings"
+  ON bookings
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+-- Policy: Allow anonymous reads (for displaying booked slots)
+CREATE POLICY "Allow anonymous reads on bookings"
+  ON bookings
+  FOR SELECT
+  USING (true);
+
+-- Function to get start of week (Monday) for a given date
+CREATE OR REPLACE FUNCTION get_week_start(d DATE)
+RETURNS DATE AS $$
+BEGIN
+  -- Returns the Monday of the week containing date d
+  RETURN d - ((EXTRACT(ISODOW FROM d)::INTEGER - 1) || ' days')::INTERVAL;
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+-- Function to check if user has booking in a given week
+CREATE OR REPLACE FUNCTION user_has_booking_this_week(user_id_param INTEGER, check_date DATE DEFAULT CURRENT_DATE)
+RETURNS BOOLEAN AS $$
+DECLARE
+  week_start_date DATE;
+  booking_count INTEGER;
+BEGIN
+  week_start_date := get_week_start(check_date);
+
+  SELECT COUNT(*) INTO booking_count
+  FROM bookings
+  WHERE user_id = user_id_param
+    AND week_start = week_start_date
+    AND status = 'confirmed';
+
+  RETURN booking_count > 0;
+END;
+$$ LANGUAGE plpgsql;
