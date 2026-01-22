@@ -234,7 +234,8 @@ class BookingService {
             console.log(`Target date object:`, targetDate);
             console.log(`Target date ISO string:`, targetDate.toISOString());
             // Find and click the correct date cell in the calendar
-            const dateFound = await this.page.evaluate((day, month, year) => {
+            // Note: Playwright evaluate() only accepts one argument, so wrap in object
+            const dateFound = await this.page.evaluate(({ day, month, year }) => {
                 const cells = document.querySelectorAll('.ui-datepicker-calendar td[data-handler="selectDay"]');
                 console.log(`Looking for: day=${day}, month=${month}, year=${year}`);
                 console.log(`Found ${cells.length} date cells in calendar`);
@@ -251,7 +252,7 @@ class BookingService {
                     }
                 }
                 return false;
-            }, targetDay, targetMonth, targetYear);
+            }, { day: targetDay, month: targetMonth, year: targetYear });
             if (!dateFound) {
                 throw new Error(`Date ${targetMonth + 1}/${targetDay}/${targetYear} not found in calendar`);
             }
