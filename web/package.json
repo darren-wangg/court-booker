@@ -12,6 +12,7 @@
     "@court-booker/shared": "workspace:*",
     "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.90.17",
+    "@vercel/analytics": "^1.6.1",
     "next": "^14.0.4",
     "playwright-core": "^1.40.0",
     "react": "^18.2.0",

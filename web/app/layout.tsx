@@ -3,6 +3,7 @@ import { Metadata } from 'next'
 import { ReactNode } from 'react'
 import QueryProvider from './providers/QueryProvider'
 import { Toaster } from 'sonner'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   title: `Court Booker ( っ'-')╮ =͟͟͞͞🏀`,
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <QueryProvider>
           <Toaster position="top-center" richColors />
           {children}
+          <Analytics />
         </QueryProvider>
       </body>
     </html>

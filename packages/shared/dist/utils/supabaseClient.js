@@ -7,6 +7,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.saveAvailabilitySnapshot = saveAvailabilitySnapshot;
 exports.getLatestSnapshot = getLatestSnapshot;
 exports.getRecentSnapshots = getRecentSnapshots;
+exports.saveBooking = saveBooking;
+exports.getUserBookingThisWeek = getUserBookingThisWeek;
+exports.getBookingsForDate = getBookingsForDate;
+exports.getBookingsInRange = getBookingsInRange;
+exports.markSlotAsBooked = markSlotAsBooked;
 exports.getSupabaseClient = getSupabaseClient;
 const supabase_js_1 = require("@supabase/supabase-js");
 // Initialize Supabase client
@@ -96,5 +101,158 @@ async function getRecentSnapshots(limit = 10, userId = null) {
         throw error;
     }
     return (data || []);
+}
+/**
+ * Get the start of the week (Monday) for a given date
+ */
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    // Adjust to Monday (day 1), handling Sunday (day 0) as end of previous week
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split('T')[0];
+}
+/**
+ * Save a booking to Supabase
+ */
+async function saveBooking(userId, userEmail, bookingDate, startHour, endHour, timeFormatted, metadata) {
+    const supabase = getSupabaseClient();
+    const booking = {
+        user_id: userId,
+        user_email: userEmail,
+        booking_date: bookingDate.toISOString().split('T')[0],
+        start_hour: startHour,
+        end_hour: endHour,
+        time_formatted: timeFormatted,
+        week_start: getWeekStart(bookingDate),
+        status: 'confirmed',
+        metadata,
+    };
+    const { data, error } = await supabase
+        .from('bookings')
+        .insert(booking)
+        .select()
+        .single();
+    if (error) {
+        console.error('❌ Error saving booking:', error);
+        throw error;
+    }
+    console.log('✅ Booking saved to Supabase:', data.id);
+    return data;
+}
+/**
+ * Get user's booking for the current week (if any)
+ */
+async function getUserBookingThisWeek(userId, referenceDate = new Date()) {
+    const supabase = getSupabaseClient();
+    const weekStart = getWeekStart(referenceDate);
+    const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('week_start', weekStart)
+        .eq('status', 'confirmed')
+        .limit(1)
+        .single();
+    if (error) {
+        if (error.code === 'PGRST116') {
+            // No rows returned
+            return null;
+        }
+        console.error('❌ Error fetching user booking:', error);
+        throw error;
+    }
+    return data;
+}
+/**
+ * Get all bookings for a specific date (to show which slots are taken)
+ */
+async function getBookingsForDate(bookingDate) {
+    const supabase = getSupabaseClient();
+    const dateStr = bookingDate.toISOString().split('T')[0];
+    const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('booking_date', dateStr)
+        .eq('status', 'confirmed');
+    if (error) {
+        console.error('❌ Error fetching bookings for date:', error);
+        throw error;
+    }
+    return (data || []);
+}
+/**
+ * Get all confirmed bookings in a date range
+ */
+async function getBookingsInRange(startDate, endDate) {
+    const supabase = getSupabaseClient();
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+    const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .gte('booking_date', startStr)
+        .lte('booking_date', endStr)
+        .eq('status', 'confirmed');
+    if (error) {
+        console.error('❌ Error fetching bookings in range:', error);
+        throw error;
+    }
+    return (data || []);
+}
+/**
+ * Update availability snapshot to mark a slot as booked
+ * This modifies the latest snapshot's data to remove the booked slot from available list
+ */
+async function markSlotAsBooked(dateStr, // e.g., "Saturday January 25, 2025"
+timeSlot // e.g., "5:00 PM - 6:00 PM"
+) {
+    const supabase = getSupabaseClient();
+    // Get latest snapshot
+    const { data: snapshot, error: fetchError } = await supabase
+        .from('availability_snapshots')
+        .select('*')
+        .order('checked_at', { ascending: false })
+        .limit(1)
+        .single();
+    if (fetchError || !snapshot) {
+        console.error('❌ Could not find snapshot to update:', fetchError);
+        return;
+    }
+    // Update the dates array to remove the booked slot
+    const dates = snapshot.dates || [];
+    let slotRemoved = false;
+    for (const dateInfo of dates) {
+        if (dateInfo.date === dateStr && Array.isArray(dateInfo.available)) {
+            const idx = dateInfo.available.indexOf(timeSlot);
+            if (idx > -1) {
+                dateInfo.available.splice(idx, 1);
+                slotRemoved = true;
+                break;
+            }
+        }
+    }
+    if (!slotRemoved) {
+        console.log('⚠️ Slot not found in availability data, skipping update');
+        return;
+    }
+    // Recalculate total available slots
+    const totalAvailable = dates.reduce((sum, d) => sum + (d.available?.length || 0), 0);
+    // Update the snapshot
+    const { error: updateError } = await supabase
+        .from('availability_snapshots')
+        .update({
+        dates,
+        total_available_slots: totalAvailable,
+        checked_at: new Date().toISOString(),
+        data: { ...snapshot.data, dates, totalAvailableSlots: totalAvailable },
+    })
+        .eq('id', snapshot.id);
+    if (updateError) {
+        console.error('❌ Error updating snapshot:', updateError);
+        throw updateError;
+    }
+    console.log('✅ Availability snapshot updated - slot marked as booked');
 }
 //# sourceMappingURL=supabaseClient.js.map

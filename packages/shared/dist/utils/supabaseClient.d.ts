@@ -42,5 +42,40 @@ export declare function getLatestSnapshot(userId?: number | null): Promise<Snaps
  * @returns Array of snapshots
  */
 export declare function getRecentSnapshots(limit?: number, userId?: number | null): Promise<Snapshot[]>;
+interface Booking {
+    id?: string;
+    created_at?: string;
+    user_id: number;
+    user_email: string;
+    booking_date: string;
+    start_hour: number;
+    end_hour: number;
+    time_formatted: string;
+    week_start: string;
+    status: 'confirmed' | 'cancelled';
+    metadata?: any;
+}
+/**
+ * Save a booking to Supabase
+ */
+export declare function saveBooking(userId: number, userEmail: string, bookingDate: Date, startHour: number, endHour: number, timeFormatted: string, metadata?: any): Promise<Booking>;
+/**
+ * Get user's booking for the current week (if any)
+ */
+export declare function getUserBookingThisWeek(userId: number, referenceDate?: Date): Promise<Booking | null>;
+/**
+ * Get all bookings for a specific date (to show which slots are taken)
+ */
+export declare function getBookingsForDate(bookingDate: Date): Promise<Booking[]>;
+/**
+ * Get all confirmed bookings in a date range
+ */
+export declare function getBookingsInRange(startDate: Date, endDate: Date): Promise<Booking[]>;
+/**
+ * Update availability snapshot to mark a slot as booked
+ * This modifies the latest snapshot's data to remove the booked slot from available list
+ */
+export declare function markSlotAsBooked(dateStr: string, // e.g., "Saturday January 25, 2025"
+timeSlot: string): Promise<void>;
 export { getSupabaseClient };
 //# sourceMappingURL=supabaseClient.d.ts.map
