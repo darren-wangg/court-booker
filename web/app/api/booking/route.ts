@@ -81,11 +81,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse date
-    const bookingDate = new Date(date);
+    // Parse date - extract the date components to avoid timezone shifts
+    // Input format: "Friday January 30, 2025" or "January 30, 2025"
+    const dateStr = date.toString();
+    // Match optional day of week, then month name, day, and year
+    const dateMatch = dateStr.match(/(?:\w+\s+)?(\w+)\s+(\d+),\s+(\d+)/);
+    if (!dateMatch) {
+      return NextResponse.json(
+        { error: 'Invalid date format. Expected "Month Day, Year" or "DayOfWeek Month Day, Year"' },
+        { status: 400 }
+      );
+    }
+
+    // Extract month name, day, and year
+    const monthStr = dateMatch[1];
+    const day = parseInt(dateMatch[2]);
+    const year = parseInt(dateMatch[3]);
+
+    // Parse month name to month number (0-indexed)
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    const month = monthNames.findIndex(m => m === monthStr);
+
+    if (month === -1) {
+      return NextResponse.json(
+        { error: 'Invalid month name' },
+        { status: 400 }
+      );
+    }
+
+    // Create date in local timezone (not UTC) to preserve the user's intended date
+    const bookingDate = new Date(year, month, day);
     if (isNaN(bookingDate.getTime())) {
       return NextResponse.json(
-        { error: 'Invalid date format' },
+        { error: 'Invalid date' },
         { status: 400 }
       );
     }
@@ -128,16 +157,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create booking request
+    // Create booking request - preserve original date string format for availability matching
     const bookingRequest: BookingRequest = {
       date: bookingDate,
       time: timeSlot,
       formatted: {
-        date: bookingDate.toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
+        date: dateStr, // Use original date string (e.g., "Friday January 30, 2025")
         time: timeSlot.formatted,
       },
     };
