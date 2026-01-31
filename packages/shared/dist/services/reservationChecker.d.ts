@@ -54,8 +54,15 @@ export default class ReservationChecker {
     generateTimeSlots(): any[];
     /**
      * Robust browser operation wrapper with context recovery for cloud environments
+     * @param operation - The operation to perform
+     * @param options - Configuration options
+     * @param options.maxRetries - Maximum number of retry attempts (default: 3)
+     * @param options.requiresLogin - Whether the operation requires logged-in state (default: false)
      */
-    robustBrowserOperation(operation: any, maxRetries?: number): Promise<any>;
+    robustBrowserOperation(operation: any, options?: {
+        maxRetries?: number;
+        requiresLogin?: boolean;
+    }): Promise<any>;
     checkAvailability(): Promise<{
         dates: any[];
         totalAvailableSlots: number;

@@ -881,8 +881,13 @@ class ReservationChecker {
     }
     /**
      * Robust browser operation wrapper with context recovery for cloud environments
+     * @param operation - The operation to perform
+     * @param options - Configuration options
+     * @param options.maxRetries - Maximum number of retry attempts (default: 3)
+     * @param options.requiresLogin - Whether the operation requires logged-in state (default: false)
      */
-    async robustBrowserOperation(operation, maxRetries = 3) {
+    async robustBrowserOperation(operation, options = {}) {
+        const { maxRetries = 3, requiresLogin = false } = options;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 console.log(`🔄 Browser operation attempt ${attempt}/${maxRetries}`);
@@ -890,7 +895,9 @@ class ReservationChecker {
             }
             catch (error) {
                 if (error.message.includes('Target page, context or browser has been closed') ||
-                    error.message.includes('Protocol error')) {
+                    error.message.includes('Protocol error') ||
+                    error.message.includes('Session closed') ||
+                    error.message.includes('Connection closed')) {
                     console.log(`⚠️ Browser context lost on attempt ${attempt}: ${error.message}`);
                     if (attempt < maxRetries) {
                         console.log(`🔄 Recovering browser context for attempt ${attempt + 1}...`);
@@ -903,6 +910,20 @@ class ReservationChecker {
                             await new Promise(resolve => setTimeout(resolve, 2000));
                             await this.initialize();
                             console.log('✅ Browser context recovered');
+                            // Re-login if the operation requires logged-in state
+                            if (requiresLogin) {
+                                console.log('🔐 Re-logging in after browser recovery...');
+                                await this.login();
+                                console.log('✅ Re-login successful');
+                                // Wait for reservations table after re-login
+                                try {
+                                    await this.page.waitForSelector("table.reservation-list", { timeout: 15000 });
+                                    console.log('✅ Reservation table visible after re-login');
+                                }
+                                catch (tableError) {
+                                    console.log('⚠️ Reservation table not found after re-login, continuing anyway');
+                                }
+                            }
                         }
                         catch (recoveryError) {
                             console.log(`⚠️ Browser recovery failed: ${recoveryError.message}`);
@@ -954,7 +975,7 @@ class ReservationChecker {
             }
             // Use robust browser operation for login in production environment
             if (process.env.NODE_ENV === 'production') {
-                await this.robustBrowserOperation(() => this.login());
+                await this.robustBrowserOperation(() => this.login(), { maxRetries: 3, requiresLogin: false });
             }
             else {
                 await this.login();
@@ -1173,7 +1194,7 @@ class ReservationChecker {
             // Load ALL reservations by clicking show more repeatedly
             let allReservations;
             if (process.env.NODE_ENV === 'production') {
-                allReservations = await this.robustBrowserOperation(() => this.loadAllReservations());
+                allReservations = await this.robustBrowserOperation(() => this.loadAllReservations(), { maxRetries: 3, requiresLogin: true });
             }
             else {
                 allReservations = await this.loadAllReservations();

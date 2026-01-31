@@ -103,6 +103,15 @@ async function getRecentSnapshots(limit = 10, userId = null) {
     return (data || []);
 }
 /**
+ * Convert a Date object to local date string (YYYY-MM-DD) without timezone conversion
+ */
+function toLocalDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+/**
  * Get the start of the week (Monday) for a given date
  */
 function getWeekStart(date) {
@@ -111,7 +120,7 @@ function getWeekStart(date) {
     // Adjust to Monday (day 1), handling Sunday (day 0) as end of previous week
     const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     d.setDate(diff);
-    return d.toISOString().split('T')[0];
+    return toLocalDateString(d);
 }
 /**
  * Save a booking to Supabase
@@ -121,7 +130,7 @@ async function saveBooking(userId, userEmail, bookingDate, startHour, endHour, t
     const booking = {
         user_id: userId,
         user_email: userEmail,
-        booking_date: bookingDate.toISOString().split('T')[0],
+        booking_date: toLocalDateString(bookingDate),
         start_hour: startHour,
         end_hour: endHour,
         time_formatted: timeFormatted,
@@ -170,7 +179,7 @@ async function getUserBookingThisWeek(userId, referenceDate = new Date()) {
  */
 async function getBookingsForDate(bookingDate) {
     const supabase = getSupabaseClient();
-    const dateStr = bookingDate.toISOString().split('T')[0];
+    const dateStr = toLocalDateString(bookingDate);
     const { data, error } = await supabase
         .from('bookings')
         .select('*')
@@ -187,8 +196,8 @@ async function getBookingsForDate(bookingDate) {
  */
 async function getBookingsInRange(startDate, endDate) {
     const supabase = getSupabaseClient();
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
+    const startStr = toLocalDateString(startDate);
+    const endStr = toLocalDateString(endDate);
     const { data, error } = await supabase
         .from('bookings')
         .select('*')
@@ -209,6 +218,7 @@ async function markSlotAsBooked(dateStr, // e.g., "Saturday January 25, 2025"
 timeSlot // e.g., "5:00 PM - 6:00 PM"
 ) {
     const supabase = getSupabaseClient();
+    console.log(`🔍 Marking slot as booked: "${dateStr}" at "${timeSlot}"`);
     // Get latest snapshot
     const { data: snapshot, error: fetchError } = await supabase
         .from('availability_snapshots')
@@ -223,18 +233,26 @@ timeSlot // e.g., "5:00 PM - 6:00 PM"
     // Update the dates array to remove the booked slot
     const dates = snapshot.dates || [];
     let slotRemoved = false;
+    console.log(`🔍 Searching in ${dates.length} dates for match...`);
     for (const dateInfo of dates) {
+        console.log(`🔍 Checking date: "${dateInfo.date}" (match: ${dateInfo.date === dateStr})`);
         if (dateInfo.date === dateStr && Array.isArray(dateInfo.available)) {
+            console.log(`🔍 Available slots: ${JSON.stringify(dateInfo.available)}`);
             const idx = dateInfo.available.indexOf(timeSlot);
             if (idx > -1) {
                 dateInfo.available.splice(idx, 1);
                 slotRemoved = true;
+                console.log(`✅ Removed slot at index ${idx}, remaining: ${JSON.stringify(dateInfo.available)}`);
                 break;
+            }
+            else {
+                console.log(`⚠️ Time slot "${timeSlot}" not found in available slots`);
             }
         }
     }
     if (!slotRemoved) {
         console.log('⚠️ Slot not found in availability data, skipping update');
+        console.log('Available dates in snapshot:', dates.map(d => d.date));
         return;
     }
     // Recalculate total available slots
