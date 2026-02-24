@@ -123,12 +123,6 @@ export default function Home() {
   }
 
   const handleBook = (date: string, timeSlot: string) => {
-    // Check booking limit before attempting
-    if (hasBookingThisWeek) {
-      toast.error(`You already have a booking this week: ${userBookingThisWeek?.time_formatted} on ${new Date(userBookingThisWeek?.booking_date || '').toLocaleDateString()}`)
-      return
-    }
-
     triggerBasketballAnimation('shoot')
     const toastId = toast.loading('Booking court...')
 
@@ -267,9 +261,8 @@ export default function Home() {
         {hasBookingThisWeek && userBookingThisWeek && (
           <div className="bg-green-50 border-l-4 border-green-500 p-3 md:p-4 mx-4 md:mx-6 mt-3 md:mt-4 rounded">
             <p className="text-green-800 text-sm font-medium">
-              ✅ You have a booking this week: {userBookingThisWeek.time_formatted} on {new Date(userBookingThisWeek.booking_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              ✅ You have a booking this week: {userBookingThisWeek.time_formatted} on {new Date(userBookingThisWeek.booking_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
-            <p className="text-green-600 text-xs mt-1">Limit: 1 booking per week</p>
           </div>
         )}
 

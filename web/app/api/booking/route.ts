@@ -178,21 +178,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already has a booking this week
-    try {
-      const existingBooking = await getUserBookingThisWeek(user.id, bookingDate);
-      if (existingBooking) {
-        return NextResponse.json({
-          success: false,
-          error: 'Booking limit reached',
-          message: `You already have a booking this week: ${existingBooking.booking_date} at ${existingBooking.time_formatted}`,
-          existingBooking,
-        }, { status: 409, headers: corsHeaders });
-      }
-    } catch (checkError: any) {
-      // Log but don't block - the check is a nice-to-have safety
-      console.warn('⚠️ Could not check existing bookings:', checkError.message);
-    }
+
 
     // Run booking directly via BookingService (uses env variables for credentials)
     const bookingService = new BookingService(userId || null);
