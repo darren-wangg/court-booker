@@ -300,31 +300,48 @@ export default class BookingService {
       console.log(`Target date object:`, targetDate);
       console.log(`Target date ISO string:`, targetDate.toISOString());
       
-      // Find and click the correct date cell in the calendar
-      // Note: Playwright evaluate() only accepts one argument, so wrap in object
-      const dateFound = await this.page.evaluate(({ day, month, year }) => {
-        const cells = document.querySelectorAll('.ui-datepicker-calendar td[data-handler="selectDay"]');
+      // Find and click the correct date cell in the calendar.
+      // The calendar may open on the current month, so navigate forward if needed.
+      const MAX_MONTH_NAVIGATIONS = 3;
+      let dateFound = false;
 
-        console.log(`Looking for: day=${day}, month=${month}, year=${year}`);
-        console.log(`Found ${cells.length} date cells in calendar`);
+      for (let attempt = 0; attempt <= MAX_MONTH_NAVIGATIONS; attempt++) {
+        dateFound = await this.page.evaluate(({ day, month, year }) => {
+          const cells = document.querySelectorAll('.ui-datepicker-calendar td[data-handler="selectDay"]');
 
-        for (const cell of cells) {
-          const cellMonth = parseInt(cell.getAttribute('data-month'));
-          const cellYear = parseInt(cell.getAttribute('data-year'));
-          const cellDay = parseInt(cell.querySelector('a').textContent);
+          console.log(`Looking for: day=${day}, month=${month}, year=${year}`);
+          console.log(`Found ${cells.length} date cells in calendar`);
 
-          console.log(`Calendar cell: ${cellMonth + 1}/${cellDay}/${cellYear}`);
+          for (const cell of cells) {
+            const cellMonth = parseInt(cell.getAttribute('data-month'));
+            const cellYear = parseInt(cell.getAttribute('data-year'));
+            const cellDay = parseInt(cell.querySelector('a').textContent);
 
-          // Note: data-month is 0-based, so we need to add 1 to compare with targetMonth
-          if (cellMonth === month && cellYear === year && cellDay === day) {
-            console.log(`Found matching date! Clicking...`);
-            cell.click();
-            return true;
+            console.log(`Calendar cell: ${cellMonth + 1}/${cellDay}/${cellYear}`);
+
+            if (cellMonth === month && cellYear === year && cellDay === day) {
+              console.log(`Found matching date! Clicking...`);
+              cell.click();
+              return true;
+            }
           }
+          return false;
+        }, { day: targetDay, month: targetMonth, year: targetYear });
+
+        if (dateFound) break;
+
+        if (attempt < MAX_MONTH_NAVIGATIONS) {
+          console.log(`Date not found in current calendar view, navigating to next month (attempt ${attempt + 1})...`);
+          const nextButton = await this.page.$('.ui-datepicker-next');
+          if (!nextButton) {
+            console.log('No next month button found');
+            break;
+          }
+          await nextButton.click();
+          await this.page.waitForTimeout(500);
         }
-        return false;
-      }, { day: targetDay, month: targetMonth, year: targetYear });
-      
+      }
+
       if (!dateFound) {
         throw new Error(`Date ${targetMonth + 1}/${targetDay}/${targetYear} not found in calendar`);
       }
