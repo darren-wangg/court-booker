@@ -160,10 +160,11 @@ class ReservationChecker {
         try {
             console.log('☁️ Connecting to Browserless.io cloud browser service...');
             console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
-            // Connect to cloud browser via WebSocket - Browserless v2 Playwright endpoint.
+            // Connect to cloud browser via CDP (root endpoint, no /chromium/playwright
+            // path) so we don't depend on matching Browserless's Playwright version.
             // timeout= raises Browserless's default ~60s session cap so a slow check
             // (table loads + repeated "show more") isn't killed mid-flow.
-            const browserWSEndpoint = `wss://production-sfo.browserless.io/chromium/playwright?token=${token}&timeout=120000`;
+            const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}&timeout=120000`;
             console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
             const playwrightBrowser = new playwrightBrowser_1.PlaywrightBrowser();
             // Add timeout to the connection attempt - increased to 60s for better reliability

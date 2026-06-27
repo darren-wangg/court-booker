@@ -48,8 +48,11 @@ export class PlaywrightBrowser {
   private page: Page | null = null;
 
   async connect(browserWSEndpoint: string): Promise<BrowserInterface> {
-    console.log('🌐 Connecting to remote browser via WebSocket...');
-    this.browser = await chromium.connect(browserWSEndpoint);
+    console.log('🌐 Connecting to remote browser via CDP...');
+    // Use CDP, not chromium.connect(): the native Playwright protocol requires
+    // the client's playwright-core version to exactly match Browserless's server
+    // version, and a mismatch hangs the handshake. CDP is version-tolerant.
+    this.browser = await chromium.connectOverCDP(browserWSEndpoint);
     
     return {
       newPage: async () => {
