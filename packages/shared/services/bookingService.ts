@@ -93,9 +93,9 @@ export default class BookingService {
 
       // Connect to cloud browser via CDP (root endpoint, no /chromium/playwright
       // path) so we don't depend on matching Browserless's Playwright version.
-      // timeout= raises Browserless's default ~60s session cap so a slow-but-
-      // progressing booking isn't killed mid-flow; kept under Vercel's 300s limit.
-      const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}&timeout=120000`;
+      // timeout= is the session cap in ms; the free plan rejects anything over
+      // 60000 with a 400, so the whole booking flow must finish within 60s.
+      const browserWSEndpoint = `wss://production-sfo.browserless.io?token=${token}&timeout=60000`;
       console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
 
       const playwrightBrowser = new PlaywrightBrowser();
