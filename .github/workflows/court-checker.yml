@@ -2,12 +2,13 @@ name: Court Availability Checker
 
 on:
   schedule:
-    # Hourly, ~9 AM to midnight Pacific. Cron is UTC; the range below covers
-    # both PST (UTC-8) and PDT (UTC-7) so the window doesn't shift with DST:
-    #   9 AM PDT = 16:00 UTC ... midnight PST = 08:00 UTC
+    # Hourly from 9 AM to 11 PM Pacific; paused 12 AM-9 AM (15 runs/day).
+    # Cron is UTC. Mapped for PDT (UTC-7): 9 AM PDT = 16:00 UTC,
+    # 11 PM PDT = 06:00 UTC next day -> hours 16-23 and 0-6.
+    # During PST (UTC-8) the window drifts ~1 hr earlier (8 AM-10 PM); fine.
     # Note: GitHub may delay/drop scheduled runs under load; runs are not
     # backfilled, so occasional gaps are expected on top of this schedule.
-    - cron: "0 16-23,0-8 * * *"
+    - cron: "0 16-23,0-6 * * *"
   workflow_dispatch: # Allow manual triggering
 
 # Prevent a slow run from overlapping the next scheduled hour
