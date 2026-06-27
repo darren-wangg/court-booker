@@ -16,6 +16,7 @@ export default class BookingService {
     private page;
     private user;
     private resourceConstraint;
+    private connectError;
     constructor(userId?: number | null);
     initialize(): Promise<void>;
     initializeBrowserlessChrome(token: string): Promise<void>;

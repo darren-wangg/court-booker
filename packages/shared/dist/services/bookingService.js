@@ -8,6 +8,7 @@ class BookingService {
         this.browser = null;
         this.page = null;
         this.resourceConstraint = false;
+        this.connectError = null;
         this.user = (0, config_1.getUser)(userId);
     }
     async initialize() {
@@ -96,7 +97,9 @@ class BookingService {
             console.log('✅ Browserless.io booking browser configured and ready');
         }
         catch (error) {
-            console.error('❌ Failed to connect to Browserless.io:', error.message);
+            const tokenLen = (process.env.BROWSERLESS_TOKEN || '').length;
+            this.connectError = `${error?.name || 'Error'}: ${error?.message || error} (tokenLen=${tokenLen})`;
+            console.error('❌ Failed to connect to Browserless.io:', this.connectError);
             console.error('💡 Possible issues:');
             console.error('   - Invalid or expired token');
             console.error('   - Network connectivity from cloud server to Browserless.io');
@@ -402,6 +405,9 @@ class BookingService {
                     details: hasToken
                         ? 'BROWSERLESS_TOKEN is set but the connection failed (expired/invalid token, rate limit, or Browserless downtime). Local Chrome cannot be launched in this serverless environment.'
                         : 'This serverless environment (Vercel) ships playwright-core with no Chromium binary, so it cannot launch a local browser. Set BROWSERLESS_TOKEN in the deployment environment to enable booking.',
+                    // Surfaces the real underlying Browserless connection error so we can
+                    // diagnose Vercel-specific failures (auth vs. network vs. bundling).
+                    connectError: this.connectError,
                     bookingRequest: bookingRequest,
                     retryable: true
                 };
