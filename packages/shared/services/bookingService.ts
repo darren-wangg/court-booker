@@ -90,8 +90,10 @@ export default class BookingService {
       console.log('☁️ Connecting to Browserless.io cloud browser service for booking...');
       console.log(`🔍 Token length: ${token ? token.length : 'undefined'} characters`);
 
-      // Connect to cloud browser via WebSocket - Browserless v2 Playwright endpoint
-      const browserWSEndpoint = `wss://production-sfo.browserless.io/chromium/playwright?token=${token}`;
+      // Connect to cloud browser via WebSocket - Browserless v2 Playwright endpoint.
+      // timeout= raises Browserless's default ~60s session cap so a slow-but-
+      // progressing booking isn't killed mid-flow; kept under Vercel's 300s limit.
+      const browserWSEndpoint = `wss://production-sfo.browserless.io/chromium/playwright?token=${token}&timeout=120000`;
       console.log('🔗 WebSocket endpoint:', browserWSEndpoint.replace(token, '[TOKEN_HIDDEN]'));
 
       const playwrightBrowser = new PlaywrightBrowser();
