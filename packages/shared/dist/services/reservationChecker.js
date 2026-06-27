@@ -412,7 +412,10 @@ class ReservationChecker {
             if (!this.page) {
                 throw new Error('Browser page not available - likely due to resource constraints');
             }
-            await this.page.goto(config_1.amenityUrl, { waitUntil: "networkidle2" });
+            // domcontentloaded, not networkidle: the portal keeps analytics/chat
+            // sockets open, so networkidle can hang until the (long, in CI) navigation
+            // timeout and fail the whole hourly run.
+            await this.page.goto(config_1.amenityUrl, { waitUntil: "domcontentloaded" });
             // Wait for login form
             await this.page.waitForSelector('input[type="text"], input[name="email"], input[id*="email"]', {
                 timeout: config_1.timeouts.waitForSelector,

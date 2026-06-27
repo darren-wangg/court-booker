@@ -194,7 +194,9 @@ export default class BookingService {
         throw new Error('Browser page not available - likely due to resource constraints');
       }
       
-      await this.page.goto(amenityUrl, { waitUntil: "networkidle2" });
+      // Use domcontentloaded, not networkidle: the portal keeps analytics/chat
+      // sockets open, so networkidle can hang until timeout and fail login.
+      await this.page.goto(amenityUrl, { waitUntil: "domcontentloaded" });
 
       // Wait for login form
       await this.page.waitForSelector(
@@ -209,8 +211,10 @@ export default class BookingService {
       await this.page.type(passwordSelector, this.user!.password);
 
       const submitButton = await this.findSubmitButton();
+      // domcontentloaded instead of networkidle for the same reason as above —
+      // networkidle here frequently times out and breaks the whole booking.
       await Promise.all([
-        this.page.waitForNavigation({ waitUntil: "networkidle2" }),
+        this.page.waitForNavigation({ waitUntil: "domcontentloaded" }),
         this.page.click(submitButton),
       ]);
 
@@ -475,11 +479,16 @@ export default class BookingService {
       
       // Check if resource constraints prevent booking
       if (this.resourceConstraint) {
-        console.log('🚨 Cannot complete booking due to resource constraints');
+        const hasToken = !!process.env.BROWSERLESS_TOKEN;
+        console.log('🚨 Cannot complete booking: no usable browser');
         return {
           success: false,
-          error: 'Resource constraints detected - Chrome cannot launch',
-          details: 'The booking service cannot launch Chrome browser due to memory/process limits. This is a temporary infrastructure issue.',
+          error: hasToken
+            ? 'Could not connect to the remote browser (Browserless.io)'
+            : 'No browser available — BROWSERLESS_TOKEN is not set',
+          details: hasToken
+            ? 'BROWSERLESS_TOKEN is set but the connection failed (expired/invalid token, rate limit, or Browserless downtime). Local Chrome cannot be launched in this serverless environment.'
+            : 'This serverless environment (Vercel) ships playwright-core with no Chromium binary, so it cannot launch a local browser. Set BROWSERLESS_TOKEN in the deployment environment to enable booking.',
           bookingRequest: bookingRequest,
           retryable: true
         };
