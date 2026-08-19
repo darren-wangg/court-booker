@@ -1,25 +1,40 @@
 /**
  * GET /api/bookings
- * Fetches user's booking for current week and all bookings in date range
+ *
+ * Bookings relevant to the availability grid: everything in the visible window,
+ * plus this user's booking for each week the window spans (the one-per-week
+ * limit is per calendar week, and an 8-day window always straddles two).
  *
  * Query params:
  * - userId: User ID to check (required)
- * - startDate: Start of date range (optional, defaults to today)
- * - endDate: End of date range (optional, defaults to 7 days from start)
+ * - startDate: First day of the range, YYYY-MM-DD (optional, defaults to today)
+ * - days: How many days the range covers (optional, defaults to 8)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserBookingThisWeek, getBookingsInRange } from '@court-booker/shared';
+import {
+  getUserBookingThisWeek,
+  getBookingsInRange,
+  appToday,
+  addDays,
+  parseLabel,
+  weekStartOf,
+  APP_TIMEZONE,
+  Booking,
+} from '@court-booker/shared';
 
 // Force this route to be dynamic
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const DEFAULT_WINDOW_DAYS = 8;
 
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get('userId');
     const startDateStr = searchParams.get('startDate');
-    const endDateStr = searchParams.get('endDate');
+    const daysStr = searchParams.get('days');
 
     if (!userId) {
       return NextResponse.json(
@@ -36,23 +51,71 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calculate date range (default: today to 7 days from now)
-    const startDate = startDateStr ? new Date(startDateStr) : new Date();
-    const endDate = endDateStr ? new Date(endDateStr) : new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // "Today" is the user's today, resolved in APP_TIMEZONE. It used to be
+    // `new Date()` read through the process timezone — UTC on Vercel — which
+    // from 5 PM Pacific onward already reported tomorrow and dropped the current
+    // day out of the range.
+    const today = appToday();
+    let startDay = today;
+    if (startDateStr) {
+      const parsed = parseLabel(startDateStr);
+      if (!parsed) {
+        return NextResponse.json(
+          { error: 'Invalid startDate: expected YYYY-MM-DD' },
+          { status: 400 }
+        );
+      }
+      startDay = parsed;
+    }
 
-    // Get user's booking for this week (to check 1-per-week limit)
-    const userBookingThisWeek = await getUserBookingThisWeek(userIdNum, startDate);
+    const days = daysStr ? parseInt(daysStr) : DEFAULT_WINDOW_DAYS;
+    if (isNaN(days) || days < 1 || days > 60) {
+      return NextResponse.json(
+        { error: 'Invalid days: must be between 1 and 60' },
+        { status: 400 }
+      );
+    }
 
-    // Get all bookings in the date range (to show which slots are taken)
-    const allBookingsInRange = await getBookingsInRange(startDate, endDate);
+    const endDay = addDays(startDay, days - 1);
 
-    return NextResponse.json({
-      success: true,
-      userBookingThisWeek,
-      hasBookingThisWeek: !!userBookingThisWeek,
-      allBookingsInRange,
+    // All bookings in the window, so the grid can mark taken slots.
+    const allBookingsInRange = await getBookingsInRange(startDay, endDay);
+
+    // This user's booking for each week the window touches. Checking only the
+    // current week made next week's days look blocked by a booking that has
+    // nothing to do with them.
+    const weekStarts: string[] = [];
+    for (let i = 0; i < days; i++) {
+      const weekStart = weekStartOf(addDays(startDay, i));
+      if (!weekStarts.includes(weekStart)) weekStarts.push(weekStart);
+    }
+
+    const perWeek = await Promise.all(
+      weekStarts.map((weekStart) => getUserBookingThisWeek(userIdNum, weekStart))
+    );
+
+    const bookingsByWeek: Record<string, Booking | null> = {};
+    weekStarts.forEach((weekStart, i) => {
+      bookingsByWeek[weekStart] = perWeek[i];
     });
 
+    const userBookingThisWeek = bookingsByWeek[weekStartOf(today)] ?? null;
+
+    return NextResponse.json(
+      {
+        success: true,
+        timezone: APP_TIMEZONE,
+        today,
+        range: { start: startDay, end: endDay },
+        // Keyed by the Monday of each week in range.
+        bookingsByWeek,
+        // Kept for the banner, which only ever cares about the current week.
+        userBookingThisWeek,
+        hasBookingThisWeek: !!userBookingThisWeek,
+        allBookingsInRange,
+      },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+    );
   } catch (error: any) {
     console.error('❌ Error fetching bookings:', error);
     return NextResponse.json(

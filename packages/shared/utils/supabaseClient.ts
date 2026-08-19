@@ -4,8 +4,9 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Ymd, appToday, isYmd, parseLabel, weekStartOf } from './dates';
 
-interface AvailabilityData {
+export interface AvailabilityData {
   totalAvailableSlots?: number;
   dates?: any[];
   success?: boolean;
@@ -13,7 +14,7 @@ interface AvailabilityData {
   [key: string]: any;
 }
 
-interface Snapshot {
+export interface Snapshot {
   id?: string;
   source: string;
   user_id?: number | null;
@@ -140,40 +141,34 @@ export async function getRecentSnapshots(limit: number = 10, userId: number | nu
 // BOOKING FUNCTIONS
 // =============================================
 
-interface Booking {
+export interface Booking {
   id?: string;
   created_at?: string;
   user_id: number;
   user_email: string;
-  booking_date: string; // ISO date string (YYYY-MM-DD)
+  booking_date: Ymd; // Calendar day, YYYY-MM-DD
   start_hour: number;
   end_hour: number;
   time_formatted: string;
-  week_start: string; // ISO date string (YYYY-MM-DD)
+  week_start: Ymd; // Monday of the booking week, YYYY-MM-DD
   status: 'confirmed' | 'cancelled';
   metadata?: any;
 }
 
 /**
- * Convert a Date object to local date string (YYYY-MM-DD) without timezone conversion
+ * Every function below takes and returns calendar days as "YYYY-MM-DD" strings.
+ * They used to take Date objects and read them with getFullYear()/getDate(),
+ * which resolves in whatever timezone the process happens to run in — UTC on
+ * Vercel, Pacific on a laptop — so the same booking landed on different days
+ * depending on where the code ran. See utils/dates.ts.
  */
-function toLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/**
- * Get the start of the week (Monday) for a given date
- */
-function getWeekStart(date: Date): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  // Adjust to Monday (day 1), handling Sunday (day 0) as end of previous week
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  return toLocalDateString(d);
+function requireYmd(value: Ymd, argName: string): Ymd {
+  if (!isYmd(value)) {
+    throw new Error(
+      `${argName} must be a calendar day in YYYY-MM-DD form, got ${JSON.stringify(value)}`
+    );
+  }
+  return value;
 }
 
 /**
@@ -182,22 +177,23 @@ function getWeekStart(date: Date): string {
 export async function saveBooking(
   userId: number,
   userEmail: string,
-  bookingDate: Date,
+  bookingDay: Ymd,
   startHour: number,
   endHour: number,
   timeFormatted: string,
   metadata?: any
 ): Promise<Booking> {
   const supabase = getSupabaseClient();
+  requireYmd(bookingDay, 'bookingDay');
 
   const booking: Omit<Booking, 'id' | 'created_at'> = {
     user_id: userId,
     user_email: userEmail,
-    booking_date: toLocalDateString(bookingDate),
+    booking_date: bookingDay,
     start_hour: startHour,
     end_hour: endHour,
     time_formatted: timeFormatted,
-    week_start: getWeekStart(bookingDate),
+    week_start: weekStartOf(bookingDay),
     status: 'confirmed',
     metadata,
   };
@@ -222,10 +218,10 @@ export async function saveBooking(
  */
 export async function getUserBookingThisWeek(
   userId: number,
-  referenceDate: Date = new Date()
+  referenceDay: Ymd = appToday()
 ): Promise<Booking | null> {
   const supabase = getSupabaseClient();
-  const weekStart = getWeekStart(referenceDate);
+  const weekStart = weekStartOf(requireYmd(referenceDay, 'referenceDay'));
 
   const { data, error } = await supabase
     .from('bookings')
@@ -251,14 +247,14 @@ export async function getUserBookingThisWeek(
 /**
  * Get all bookings for a specific date (to show which slots are taken)
  */
-export async function getBookingsForDate(bookingDate: Date): Promise<Booking[]> {
+export async function getBookingsForDate(bookingDay: Ymd): Promise<Booking[]> {
   const supabase = getSupabaseClient();
-  const dateStr = toLocalDateString(bookingDate);
+  requireYmd(bookingDay, 'bookingDay');
 
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
-    .eq('booking_date', dateStr)
+    .eq('booking_date', bookingDay)
     .eq('status', 'confirmed');
 
   if (error) {
@@ -273,18 +269,18 @@ export async function getBookingsForDate(bookingDate: Date): Promise<Booking[]> 
  * Get all confirmed bookings in a date range
  */
 export async function getBookingsInRange(
-  startDate: Date,
-  endDate: Date
+  startDay: Ymd,
+  endDay: Ymd
 ): Promise<Booking[]> {
   const supabase = getSupabaseClient();
-  const startStr = toLocalDateString(startDate);
-  const endStr = toLocalDateString(endDate);
+  requireYmd(startDay, 'startDay');
+  requireYmd(endDay, 'endDay');
 
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
-    .gte('booking_date', startStr)
-    .lte('booking_date', endStr)
+    .gte('booking_date', startDay)
+    .lte('booking_date', endDay)
     .eq('status', 'confirmed');
 
   if (error) {
@@ -296,16 +292,17 @@ export async function getBookingsInRange(
 }
 
 /**
- * Update availability snapshot to mark a slot as booked
- * This modifies the latest snapshot's data to remove the booked slot from available list
+ * Update the latest availability snapshot so a freshly booked slot stops showing
+ * as available until the next scrape.
  */
 export async function markSlotAsBooked(
-  dateStr: string, // e.g., "Saturday January 25, 2025"
+  bookingDay: Ymd,
   timeSlot: string // e.g., "5:00 PM - 6:00 PM"
 ): Promise<void> {
   const supabase = getSupabaseClient();
+  requireYmd(bookingDay, 'bookingDay');
 
-  console.log(`🔍 Marking slot as booked: "${dateStr}" at "${timeSlot}"`);
+  console.log(`🔍 Marking slot as booked: ${bookingDay} at "${timeSlot}"`);
 
   // Get latest snapshot
   const { data: snapshot, error: fetchError } = await supabase
@@ -320,30 +317,33 @@ export async function markSlotAsBooked(
     return;
   }
 
-  // Update the dates array to remove the booked slot
+  // Match on the parsed calendar day rather than the label string, so a snapshot
+  // written with a slightly different label ("Saturday, January 18, 2025" vs
+  // "Saturday January 18, 2025") still lines up.
   const dates = snapshot.dates || [];
   let slotRemoved = false;
 
-  console.log(`🔍 Searching in ${dates.length} dates for match...`);
   for (const dateInfo of dates) {
-    console.log(`🔍 Checking date: "${dateInfo.date}" (match: ${dateInfo.date === dateStr})`);
-    if (dateInfo.date === dateStr && Array.isArray(dateInfo.available)) {
-      console.log(`🔍 Available slots: ${JSON.stringify(dateInfo.available)}`);
-      const idx = dateInfo.available.indexOf(timeSlot);
-      if (idx > -1) {
-        dateInfo.available.splice(idx, 1);
-        slotRemoved = true;
-        console.log(`✅ Removed slot at index ${idx}, remaining: ${JSON.stringify(dateInfo.available)}`);
-        break;
-      } else {
-        console.log(`⚠️ Time slot "${timeSlot}" not found in available slots`);
-      }
+    if (parseLabel(dateInfo.date) !== bookingDay) continue;
+    if (!Array.isArray(dateInfo.available)) continue;
+
+    const idx = dateInfo.available.indexOf(timeSlot);
+    if (idx > -1) {
+      dateInfo.available.splice(idx, 1);
+      dateInfo.booked = Array.isArray(dateInfo.booked)
+        ? [...dateInfo.booked, timeSlot]
+        : [timeSlot];
+      slotRemoved = true;
+      console.log(`✅ Removed "${timeSlot}" from ${bookingDay}`);
+    } else {
+      console.log(`⚠️ "${timeSlot}" was not in the available list for ${bookingDay}`);
     }
+    break;
   }
 
   if (!slotRemoved) {
-    console.log('⚠️ Slot not found in availability data, skipping update');
-    console.log('Available dates in snapshot:', dates.map(d => d.date));
+    console.log('⚠️ Slot not found in availability data, skipping snapshot update');
+    console.log('Days in snapshot:', dates.map((d: any) => parseLabel(d.date) ?? d.date));
     return;
   }
 

@@ -11,7 +11,8 @@ export default class ReservationChecker {
     checkAvailabilityFallback(): Promise<{
         success: boolean;
         dates: {
-            date: any;
+            ymd: string;
+            date: string;
             booked: any[];
             available: any[];
             totalSlots: number;
@@ -44,13 +45,29 @@ export default class ReservationChecker {
     clickShowMoreReservations(): Promise<boolean>;
     loadAllReservations(): Promise<Map<any, any>>;
     findTimeSlotsForDate(dateInfo: any, allReservations: any): {
+        ymd: any;
         date: any;
         booked: any[];
         available: any[];
         totalSlots: number;
     };
-    datesMatch(reservationDate: any, dateInfo: any): boolean;
-    getNext7Days(): any[];
+    /**
+     * The eight-day window the grid shows, anchored on today in APP_TIMEZONE.
+     *
+     * Anchored on the user's day, not the site's. The two differ between 9 PM and
+     * midnight Pacific, and anchoring on the site's day there made the window skip
+     * the user's today and read a day ahead. The site simply has no reservation
+     * data for days it has already rolled past, so those days come back looking
+     * fully free; the API layer substitutes an earlier snapshot for them and the UI
+     * marks them unbookable.
+     */
+    getNext7Days(): {
+        ymd: string;
+        day: string;
+        monthName: string;
+        year: number;
+        fullDate: string;
+    }[];
     generateTimeSlots(): any[];
     /**
      * Robust browser operation wrapper with context recovery for cloud environments
@@ -67,12 +84,14 @@ export default class ReservationChecker {
         dates: any[];
         totalAvailableSlots: number;
         checkedAt: string;
+        timezone: string;
         success: boolean;
     } | {
         success: boolean;
         totalAvailableSlots: number;
         dates: {
-            date: any;
+            ymd: string;
+            date: string;
             booked: any[];
             available: any[];
             totalSlots: number;

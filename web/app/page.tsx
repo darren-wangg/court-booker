@@ -1,54 +1,74 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import Spinner from './components/Spinner'
 import { useUsers } from './queries/useUsers'
-import { useAvailability, useRefreshAvailability, useBookSlot, useBookings, DateInfo, UserBooking } from './queries/useAvailabilities'
+import {
+  useAvailability,
+  useBookings,
+  useRefetchAll,
+  DateInfo,
+  UserBooking,
+} from './queries/useAvailabilities'
+import {
+  useJobs,
+  useStartRefresh,
+  useStartBooking,
+  hasActiveJob,
+  isTerminal,
+  Job,
+} from './queries/useJobs'
+import { formatFriendly, formatInstant, weekStartOf, Ymd } from '@/lib/dates'
 
-// Parse a date string like "Saturday January 18, 2025" or "January 18, 2025"
-function parseDateString(dateStr: string): Date | null {
-  // Try direct parsing first
-  const parsed = new Date(dateStr)
-  if (!isNaN(parsed.getTime())) {
-    return parsed
+/**
+ * Days, bookings and columns are all keyed by a "YYYY-MM-DD" string that the
+ * server produced. Nothing here parses a date out of a display string or builds
+ * a Date to compare days with — that is what used to make bookings render a day
+ * off from what was actually reserved.
+ */
+
+/** Jobs whose outcome the user has already been told about. */
+const ANNOUNCED_JOBS_KEY = 'court-booker:announced-jobs'
+
+function loadAnnouncedJobs(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(ANNOUNCED_JOBS_KEY) || '[]')
+    return new Set(Array.isArray(stored) ? stored : [])
+  } catch {
+    return new Set()
   }
-  // Try removing day of week prefix
-  const withoutDay = dateStr.replace(/^[A-Za-z]+\s+/, '')
-  const parsed2 = new Date(withoutDay)
-  if (!isNaN(parsed2.getTime())) {
-    return parsed2
-  }
-  return null
 }
 
-// Check if a date string is in the past (before today)
-function isPastDate(dateStr: string): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const parsed = parseDateString(dateStr)
-  if (parsed) {
-    parsed.setHours(0, 0, 0, 0)
-    return parsed < today
+function saveAnnouncedJobs(ids: Set<string>) {
+  if (typeof window === 'undefined') return
+  try {
+    // Keep the list bounded; only recent jobs are ever re-reported.
+    window.localStorage.setItem(ANNOUNCED_JOBS_KEY, JSON.stringify(Array.from(ids).slice(-50)))
+  } catch {
+    // Private browsing or a full quota — worst case a result is announced twice.
   }
-  return false
 }
 
-// Check if a date string (e.g., "Saturday, January 18") is today
-function isToday(dateStr: string): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const parsed = parseDateString(dateStr)
-  if (parsed) {
-    parsed.setHours(0, 0, 0, 0)
-    return parsed.getTime() === today.getTime()
+function unbookableLabel(dateInfo: DateInfo): string | null {
+  switch (dateInfo.unbookable) {
+    case 'same-day':
+      return 'Same-day booking unavailable'
+    case 'site-rolled-over':
+      return 'Court day has rolled over'
+    case 'past':
+      return 'Already passed'
+    default:
+      return null
   }
-  // Fallback: check if the date string contains today's month and day
-  const todayFormatted = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  return dateStr.includes(today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })) ||
-    dateStr === todayFormatted
+}
+
+function describeJob(job: Job): string {
+  if (job.type === 'refresh') return 'Checking availability'
+  const label = job.payload?.label ? formatFriendly(job.payload.day) : 'a court'
+  const time = job.payload?.time?.formatted ? ` at ${job.payload.time.formatted}` : ''
+  return `Booking ${label}${time}`
 }
 
 export default function Home() {
@@ -58,43 +78,82 @@ export default function Home() {
 
   // React Query hooks
   const { data: users, isLoading: isUsersLoading } = useUsers()
-  const { data: availability, isLoading: isAvailabilityLoading, error: availabilityError } = useAvailability(selectedUserId)
+  const {
+    data: availability,
+    isLoading: isAvailabilityLoading,
+    error: availabilityError,
+  } = useAvailability(selectedUserId)
   const { data: bookingsData } = useBookings(selectedUserId)
-  const refreshMutation = useRefreshAvailability()
-  const bookMutation = useBookSlot()
+  const { data: jobs } = useJobs(selectedUserId)
+  const refetchAll = useRefetchAll()
+
+  const startRefresh = useStartRefresh()
+  const startBooking = useStartBooking()
+
+  const announcedRef = useRef<Set<string> | null>(null)
+  if (announcedRef.current === null) announcedRef.current = loadAnnouncedJobs()
 
   // Booking state
   const hasBookingThisWeek = bookingsData?.hasBookingThisWeek || false
   const userBookingThisWeek = bookingsData?.userBookingThisWeek || null
   const allBookingsInRange = bookingsData?.allBookingsInRange || []
+  const bookingsByWeek = bookingsData?.bookingsByWeek || {}
 
-  // Helper to check if a slot is booked by someone
-  const isSlotBooked = (dateStr: string, timeSlot: string): UserBooking | null => {
-    const booking = allBookingsInRange.find(b => {
-      // Parse the date from the availability format (e.g., "Saturday January 25, 2025")
-      const bookingDateObj = new Date(b.booking_date)
-      const parsedDate = parseDateString(dateStr)
-      if (!parsedDate) return false
+  const refreshRunning = hasActiveJob(jobs, 'refresh')
+  const bookingRunning = hasActiveJob(jobs, 'booking')
+  const activeJobs = (jobs ?? []).filter((job) => !isTerminal(job.status))
 
-      return (
-        bookingDateObj.toDateString() === parsedDate.toDateString() &&
-        b.time_formatted === timeSlot
-      )
-    })
-    return booking || null
-  }
+  /**
+   * Report jobs that finished, including ones that finished while this tab was
+   * closed. The server is the record of what happened, so a completed booking
+   * still gets announced the next time the app is opened — exactly once.
+   */
+  useEffect(() => {
+    if (!jobs?.length) return
 
-  // Check if a slot is the user's own booking
-  const isMyBooking = (dateStr: string, timeSlot: string): boolean => {
-    if (!userBookingThisWeek) return false
-    const bookingDateObj = new Date(userBookingThisWeek.booking_date)
-    const parsedDate = parseDateString(dateStr)
-    if (!parsedDate) return false
-    return (
-      bookingDateObj.toDateString() === parsedDate.toDateString() &&
-      userBookingThisWeek.time_formatted === timeSlot
-    )
-  }
+    const announced = announcedRef.current!
+    let sawNew = false
+
+    for (const job of jobs) {
+      if (!isTerminal(job.status) || announced.has(job.id)) continue
+
+      announced.add(job.id)
+      sawNew = true
+
+      if (job.type === 'booking') {
+        if (job.status === 'succeeded') {
+          const day = job.payload?.day as Ymd | undefined
+          const time = job.payload?.time?.formatted
+          toast.success(
+            day ? `Court booked for ${formatFriendly(day)} at ${time}! 🏀` : 'Court booked! 🏀',
+            { id: `job-${job.id}` }
+          )
+          if (job.result?.persisted === false && job.result?.warning) {
+            toast.warning(job.result.warning, { id: `job-warn-${job.id}`, duration: 10000 })
+          }
+        } else {
+          toast.error(`Booking failed: ${job.error || 'unknown error'}`, {
+            id: `job-${job.id}`,
+            duration: 10000,
+          })
+        }
+      } else if (job.type === 'refresh') {
+        if (job.status === 'succeeded') {
+          toast.success('Availability updated!', { id: `job-${job.id}` })
+        } else {
+          toast.error(`Refresh failed: ${job.error || 'unknown error'}`, {
+            id: `job-${job.id}`,
+            duration: 10000,
+          })
+        }
+      }
+    }
+
+    if (sawNew) {
+      saveAnnouncedJobs(announced)
+      refetchAll(selectedUserId)
+    }
+  }, [jobs, selectedUserId, refetchAll])
 
   // Set initial user when users are loaded
   useEffect(() => {
@@ -103,37 +162,88 @@ export default function Home() {
     }
   }, [users, selectedUserId])
 
+  const dates: DateInfo[] = availability?.data?.dates ?? []
+  const meta = availability?.meta
+
+  // Between 9 PM and midnight Pacific the booking site has already moved to the
+  // next day, so days the user still thinks of as bookable are not.
+  const courtDayAhead = !!meta && meta.courtToday !== meta.today
+
+  // Keep the carousel in range when the window shrinks (e.g. a day rolls off).
+  const datesPerPage = 2
+  const totalPages = Math.max(1, Math.ceil(dates.length / datesPerPage))
+  useEffect(() => {
+    if (mobileCarouselIndex > totalPages - 1) setMobileCarouselIndex(totalPages - 1)
+  }, [totalPages, mobileCarouselIndex])
+
+  /** Who has this slot, if anyone. Compared as calendar days, never as Dates. */
+  const slotBookedBy = (ymd: Ymd, timeSlot: string): UserBooking | null =>
+    allBookingsInRange.find((b) => b.booking_date === ymd && b.time_formatted === timeSlot) ?? null
+
+  const isMyBooking = (ymd: Ymd, timeSlot: string): boolean => {
+    const booking = slotBookedBy(ymd, timeSlot)
+    return !!booking && booking.user_id === selectedUserId
+  }
+
+  /**
+   * The one-per-week limit applies to the week the day falls in, not to whatever
+   * week it happens to be right now — an 8-day grid always spans two weeks.
+   */
+  const bookingForWeekOf = (ymd: Ymd): UserBooking | null => {
+    try {
+      return bookingsByWeek[weekStartOf(ymd)] ?? null
+    } catch {
+      return null
+    }
+  }
+
   const triggerBasketballAnimation = (type: string) => {
     setBasketballAnimation(type)
     setTimeout(() => setBasketballAnimation(null), 800)
   }
 
   const handleRefresh = () => {
+    if (refreshRunning) {
+      toast.info('A refresh is already running — it will finish on its own.')
+      return
+    }
     triggerBasketballAnimation('bounce')
-    const toastId = toast.loading('Fetching latest availability...')
 
-    refreshMutation.mutate(selectedUserId, {
-      onSuccess: () => {
-        toast.success('Availability updated!', { id: toastId })
+    startRefresh.mutate(selectedUserId, {
+      onSuccess: (result) => {
+        toast.success(
+          result.alreadyRunning
+            ? 'A refresh was already running.'
+            : "Checking availability — this keeps running if you leave.",
+          { id: 'refresh-start' }
+        )
       },
       onError: (error) => {
-        toast.error(`Failed to refresh: ${error.message}`, { id: toastId })
+        toast.error(`Could not start refresh: ${error.message}`, { id: 'refresh-start' })
       },
     })
   }
 
-  const handleBook = (date: string, timeSlot: string) => {
+  const handleBook = (dateInfo: DateInfo, timeSlot: string) => {
+    if (bookingRunning) {
+      toast.info('A booking is already in progress.')
+      return
+    }
     triggerBasketballAnimation('shoot')
-    const toastId = toast.loading('Booking court...')
 
-    bookMutation.mutate(
-      { date, time: timeSlot, userId: selectedUserId },
+    startBooking.mutate(
+      { date: dateInfo.ymd, time: timeSlot, userId: selectedUserId },
       {
-        onSuccess: () => {
-          toast.success(`Court booked for ${date} at ${timeSlot}! 🏀`, { id: toastId })
+        onSuccess: (result) => {
+          toast.success(
+            result.alreadyRunning
+              ? 'A booking was already in progress.'
+              : `Booking ${formatFriendly(dateInfo.ymd)} at ${timeSlot} — you can close this tab.`,
+            { id: 'booking-start' }
+          )
         },
         onError: (error) => {
-          toast.error(`Booking failed: ${error.message}`, { id: toastId })
+          toast.error(`Booking failed: ${error.message}`, { id: 'booking-start', duration: 10000 })
         },
       }
     )
@@ -168,32 +278,119 @@ export default function Home() {
     )
   }
 
-  // The availability object has dates at the root level
-  // Filter out past dates (before today) to avoid showing stale data
-  const dates = ((availability?.dates as DateInfo[]) || []).filter(d => !isPastDate(d.date))
-
-  // Mobile carousel navigation
-  const datesPerPage = 2
-  const totalPages = Math.ceil(dates.length / datesPerPage)
   const canGoPrev = mobileCarouselIndex > 0
   const canGoNext = mobileCarouselIndex < totalPages - 1
 
   const handlePrevDates = () => {
-    if (canGoPrev) {
-      setMobileCarouselIndex(prev => prev - 1)
-    }
+    if (canGoPrev) setMobileCarouselIndex((prev) => prev - 1)
   }
 
   const handleNextDates = () => {
-    if (canGoNext) {
-      setMobileCarouselIndex(prev => prev + 1)
-    }
+    if (canGoNext) setMobileCarouselIndex((prev) => prev + 1)
   }
 
   const visibleDates = dates.slice(
     mobileCarouselIndex * datesPerPage,
     (mobileCarouselIndex + 1) * datesPerPage
   )
+
+  /** One day column, shared by the mobile and desktop grids. */
+  const renderDateCard = (dateInfo: DateInfo, variant: 'mobile' | 'desktop') => {
+    const compact = variant === 'mobile'
+    const availableSlots = dateInfo.available || []
+    const isFullyBooked = availableSlots.length === 0
+    const bookable = dateInfo.bookable !== false
+    const badge = unbookableLabel(dateInfo)
+    const weekBooking = bookingForWeekOf(dateInfo.ymd)
+
+    return (
+      <div
+        className={`flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm ${
+          bookable ? '' : 'opacity-75'
+        }`}
+      >
+        <div
+          className={`border-b text-center ${compact ? 'px-3 py-2' : 'px-4 py-3'} ${
+            bookable ? 'bg-gray-50' : 'bg-amber-50'
+          }`}
+        >
+          <span className={`font-semibold text-gray-900 ${compact ? 'text-xs' : 'text-sm'}`}>
+            {dateInfo.date}
+          </span>
+          {badge && (
+            <span className={`block text-amber-600 ${compact ? 'text-[10px]' : 'text-xs'}`}>
+              {badge}
+            </span>
+          )}
+          {dateInfo.isHistorical && (
+            <span className={`block text-gray-400 ${compact ? 'text-[10px]' : 'text-xs'}`}>
+              Last known times
+            </span>
+          )}
+        </div>
+
+        {isFullyBooked ? (
+          <div className={`flex-1 flex flex-col items-center justify-center text-center ${compact ? 'p-4' : 'p-6'}`}>
+            <div className={compact ? 'text-4xl mb-2' : 'text-5xl mb-3'}>✕</div>
+            <p className="text-sm text-gray-500 font-medium">No availabilities</p>
+          </div>
+        ) : (
+          <div className={`flex-1 overflow-auto space-y-2 ${compact ? 'p-2' : 'p-3'}`}>
+            {availableSlots.map((slot: string, slotIdx: number) => {
+              const bookedBy = slotBookedBy(dateInfo.ymd, slot)
+              const mine = isMyBooking(dateInfo.ymd, slot)
+              const canBook = bookable && !bookedBy && !weekBooking && !bookingRunning
+
+              return (
+                <div
+                  key={slotIdx}
+                  className={`rounded-lg ${
+                    compact ? 'flex flex-col gap-2 p-2' : 'flex justify-between items-center p-3'
+                  } ${
+                    mine
+                      ? 'bg-green-100 border border-green-300'
+                      : bookedBy
+                      ? 'bg-gray-200'
+                      : 'bg-gray-50'
+                  }`}
+                >
+                  <span
+                    className={`${compact ? 'text-xs' : 'text-sm flex-1'} ${
+                      mine ? 'text-green-800 font-medium' : bookedBy ? 'text-gray-500' : 'text-gray-700'
+                    }`}
+                  >
+                    {slot}
+                    {mine && (
+                      <span className={`text-green-600 ${compact ? 'ml-1' : 'ml-2 text-xs'}`}>
+                        (Your booking)
+                      </span>
+                    )}
+                    {bookedBy && !mine && (
+                      <span className={`text-gray-400 ${compact ? 'ml-1' : 'ml-2 text-xs'}`}>
+                        (Booked)
+                      </span>
+                    )}
+                  </span>
+                  {canBook && (
+                    <button
+                      onClick={() => handleBook(dateInfo, slot)}
+                      disabled={startBooking.isPending || bookingRunning}
+                      className={`rounded-lg transition disabled:opacity-50 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100 ${
+                        compact ? 'w-7 h-7' : 'w-8 h-8 ml-2'
+                      }`}
+                      title={`Book ${formatFriendly(dateInfo.ymd)} at ${slot}`}
+                    >
+                      🏀
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen h-screen p-2 md:p-4 overflow-hidden bg-gray-100">
@@ -220,10 +417,14 @@ export default function Home() {
           <div className="flex justify-between items-center md:block">
             <div className="text-gray-600 text-xs md:text-sm">
               {availability && (
-                <span className="hidden md:inline">Last checked on: {new Date(availability.checked_at).toLocaleString()}</span>
-              )}
-              {availability && (
-                <span className="md:hidden">Last: {new Date(availability.checked_at).toLocaleTimeString()}</span>
+                <>
+                  <span className="hidden md:inline">
+                    Last checked on: {formatInstant(availability.data.checked_at)}
+                  </span>
+                  <span className="md:hidden">
+                    Last: {formatInstant(availability.data.checked_at, { timeStyle: 'short' })}
+                  </span>
+                </>
               )}
             </div>
             <div className="text-gray-600 text-sm md:hidden">
@@ -249,27 +450,51 @@ export default function Home() {
             )}
             <button
               onClick={handleRefresh}
-              disabled={refreshMutation.isPending}
+              disabled={startRefresh.isPending || refreshRunning}
               className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {refreshMutation.isPending ? 'Refreshing...' : 'Refresh Times'}
+              {refreshRunning || startRefresh.isPending ? 'Refreshing...' : 'Refresh Times'}
             </button>
           </div>
         </div>
+
+        {/* Work running on the server. Survives this tab closing. */}
+        {activeJobs.length > 0 && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-3 md:p-4 mx-4 md:mx-6 mt-3 md:mt-4 rounded">
+            {activeJobs.map((job) => (
+              <p key={job.id} className="text-blue-800 text-sm font-medium flex items-center gap-2">
+                <Spinner size="sm" />
+                {describeJob(job)}… running on the server — safe to switch tabs or close this.
+              </p>
+            ))}
+          </div>
+        )}
 
         {/* User's booking banner */}
         {hasBookingThisWeek && userBookingThisWeek && (
           <div className="bg-green-50 border-l-4 border-green-500 p-3 md:p-4 mx-4 md:mx-6 mt-3 md:mt-4 rounded">
             <p className="text-green-800 text-sm font-medium">
-              ✅ You have a booking this week: {userBookingThisWeek.time_formatted} on {new Date(userBookingThisWeek.booking_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              ✅ You have a booking this week: {userBookingThisWeek.time_formatted} on{' '}
+              {formatFriendly(userBookingThisWeek.booking_date)}
+            </p>
+          </div>
+        )}
+
+        {/* The court's day is ahead of the user's — only true late at night. */}
+        {courtDayAhead && meta && (
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-3 md:p-4 mx-4 md:mx-6 mt-3 md:mt-4 rounded">
+            <p className="text-amber-800 text-sm">
+              Heads up: the booking site has already rolled over to{' '}
+              {formatFriendly(meta.courtToday)}, so {formatFriendly(meta.today)} can no longer be
+              reserved.
             </p>
           </div>
         )}
 
         {/* Error banner */}
-        {refreshMutation.error && (
+        {startRefresh.error && (
           <div className="bg-red-50 border-l-4 border-red-500 p-4 mx-6 mt-4 rounded">
-            <p className="text-red-700 text-sm">{refreshMutation.error.message}</p>
+            <p className="text-red-700 text-sm">{startRefresh.error.message}</p>
           </div>
         )}
 
@@ -279,6 +504,7 @@ export default function Home() {
             onClick={handlePrevDates}
             disabled={!canGoPrev}
             className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            aria-label="Previous days"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -291,6 +517,7 @@ export default function Home() {
             onClick={handleNextDates}
             disabled={!canGoNext}
             className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            aria-label="Next days"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -307,119 +534,25 @@ export default function Home() {
           <>
             {/* Mobile: 2-column grid with carousel */}
             <div className="md:hidden flex-1 grid grid-cols-2 gap-3 p-4 overflow-auto">
-              {visibleDates.map((dateInfo, idx) => {
-                const availableSlots = dateInfo.available || []
-                const isFullyBooked = availableSlots.length === 0
-                const isSameDay = isToday(dateInfo.date)
-
-                return (
-                  <div key={mobileCarouselIndex * datesPerPage + idx} className={`flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm ${isSameDay ? 'opacity-75' : ''}`}>
-                    <div className={`border-b px-3 py-2 text-center ${isSameDay ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                      <span className="text-xs font-semibold text-gray-900">{dateInfo.date}</span>
-                      {isSameDay && <span className="block text-[10px] text-amber-600">Same-day booking unavailable</span>}
-                    </div>
-
-                    {isFullyBooked ? (
-                      <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-                        <div className="text-4xl mb-2">✕</div>
-                        <p className="text-sm text-gray-500 font-medium">No availabilities</p>
-                      </div>
-                    ) : (
-                      <div className="flex-1 overflow-auto p-2 space-y-2">
-                        {availableSlots.map((slot: string, slotIdx: number) => {
-                          const myBooking = isMyBooking(dateInfo.date, slot)
-                          const bookedBy = isSlotBooked(dateInfo.date, slot)
-                          const canBook = !isSameDay && !hasBookingThisWeek && !bookedBy
-
-                          return (
-                            <div
-                              key={slotIdx}
-                              className={`flex flex-col gap-2 p-2 rounded-lg ${myBooking ? 'bg-green-100 border border-green-300' : bookedBy ? 'bg-gray-200' : 'bg-gray-50'}`}
-                            >
-                              <span className={`text-xs ${myBooking ? 'text-green-800 font-medium' : bookedBy ? 'text-gray-500' : 'text-gray-700'}`}>
-                                {slot}
-                                {myBooking && <span className="ml-1 text-green-600">(Your booking)</span>}
-                                {bookedBy && !myBooking && <span className="ml-1 text-gray-400">(Booked)</span>}
-                              </span>
-                              {canBook && (
-                                <button
-                                  onClick={() => handleBook(dateInfo.date, slot)}
-                                  disabled={bookMutation.isPending}
-                                  className="w-7 h-7 rounded-lg transition disabled:opacity-50 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
-                                  title="Book this slot"
-                                >
-                                  🏀
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+              {visibleDates.map((dateInfo) => (
+                <div key={dateInfo.ymd} className="contents">
+                  {renderDateCard(dateInfo, 'mobile')}
+                </div>
+              ))}
             </div>
 
-            {/* Desktop: Original horizontal grid */}
-            <div className="hidden md:grid md:gap-4 p-6 overflow-auto flex-1"
+            {/* Desktop: horizontal grid, one column per day */}
+            <div
+              className="hidden md:grid md:gap-4 p-6 overflow-auto flex-1"
               style={{
-                gridTemplateColumns: dates.length > 0
-                  ? `repeat(${dates.length}, 1fr)`
-                  : '1fr'
-              }}>
-              {dates.map((dateInfo, idx) => {
-                const availableSlots = dateInfo.available || []
-                const isFullyBooked = availableSlots.length === 0
-                const isSameDay = isToday(dateInfo.date)
-
-                return (
-                  <div key={idx} className={`flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm ${isSameDay ? 'opacity-75' : ''}`}>
-                    <div className={`border-b px-4 py-3 text-center ${isSameDay ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                      <span className="text-sm font-semibold text-gray-900">{dateInfo.date}</span>
-                      {isSameDay && <span className="block text-xs text-amber-600">Same-day booking unavailable</span>}
-                    </div>
-
-                    {isFullyBooked ? (
-                      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                        <div className="text-5xl mb-3">✕</div>
-                        <p className="text-sm text-gray-500 font-medium">No availabilities</p>
-                      </div>
-                    ) : (
-                      <div className="flex-1 overflow-auto p-3 space-y-2">
-                        {availableSlots.map((slot: string, slotIdx: number) => {
-                          const myBooking = isMyBooking(dateInfo.date, slot)
-                          const bookedBy = isSlotBooked(dateInfo.date, slot)
-                          const canBook = !isSameDay && !hasBookingThisWeek && !bookedBy
-
-                          return (
-                            <div
-                              key={slotIdx}
-                              className={`flex justify-between items-center p-3 rounded-lg ${myBooking ? 'bg-green-100 border border-green-300' : bookedBy ? 'bg-gray-200' : 'bg-gray-50'}`}
-                            >
-                              <span className={`text-sm flex-1 ${myBooking ? 'text-green-800 font-medium' : bookedBy ? 'text-gray-500' : 'text-gray-700'}`}>
-                                {slot}
-                                {myBooking && <span className="ml-2 text-green-600 text-xs">(Your booking)</span>}
-                                {bookedBy && !myBooking && <span className="ml-2 text-gray-400 text-xs">(Booked)</span>}
-                              </span>
-                              {canBook && (
-                                <button
-                                  onClick={() => handleBook(dateInfo.date, slot)}
-                                  disabled={bookMutation.isPending}
-                                  className="w-8 h-8 rounded-lg transition ml-2 bg-blue-500 hover:bg-blue-600 cursor-pointer flex items-center justify-center shrink-0 border-solid border-gray-100"
-                                  title="Book this slot"
-                                >
-                                  🏀
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                gridTemplateColumns: dates.length > 0 ? `repeat(${dates.length}, 1fr)` : '1fr',
+              }}
+            >
+              {dates.map((dateInfo) => (
+                <div key={dateInfo.ymd} className="contents">
+                  {renderDateCard(dateInfo, 'desktop')}
+                </div>
+              ))}
             </div>
           </>
         )}

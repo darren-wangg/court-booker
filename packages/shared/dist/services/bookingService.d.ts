@@ -1,10 +1,12 @@
+import { Ymd } from '../utils/dates';
 interface TimeSlot {
     startHour: number;
     endHour: number;
     formatted: string;
 }
 interface BookingRequest {
-    date: Date;
+    /** The calendar day to book, "YYYY-MM-DD". */
+    day: Ymd;
     time: TimeSlot;
     formatted: {
         date: string;
@@ -28,7 +30,7 @@ export default class BookingService {
     /**
      * Navigate to the booking page for a specific date
      */
-    navigateToBookingPage(targetDate: Date): Promise<boolean>;
+    navigateToBookingPage(targetDay: Ymd): Promise<boolean>;
     /**
      * Select start and end times from dropdowns
      */

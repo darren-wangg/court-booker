@@ -1,18 +1,40 @@
 /**
  * POST /api/booking
- * Books a court time slot directly using BookingService
- * Now runs serverless with Browserless.io (no DigitalOcean needed!)
+ *
+ * Enqueues a booking and returns immediately with a job id. The actual work —
+ * driving a headless browser through login, date selection and confirmation —
+ * runs server-side and keeps going regardless of what the browser tab does, so
+ * switching tabs or closing the screen no longer kills a booking in progress.
+ * Poll GET /api/jobs/{id} for the outcome.
  *
  * Request body:
  * {
- *   date: "2025-01-15" (ISO date string or "January 15, 2025"),
- *   time: "5:00 PM - 6:00 PM" or { startHour: 17, endHour: 18 },
+ *   date: "Friday August 21, 2026" | "2026-08-21",
+ *   time: "4:00 PM - 5:00 PM" | { startHour: 16, endHour: 17 },
  *   userId: 1 (optional)
  * }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { BookingService, getUser, saveBooking, getUserBookingThisWeek, markSlotAsBooked } from '@court-booker/shared';
+import {
+  BookingService,
+  getUser,
+  saveBooking,
+  getUserBookingThisWeek,
+  markSlotAsBooked,
+  createJob,
+  findActiveJob,
+  runJob,
+  parseLabel,
+  formatLabel,
+  formatFriendly,
+  isBookable,
+  unbookableReason,
+  weekStartOf,
+  siteToday,
+  appToday,
+} from '@court-booker/shared';
+import { runInBackground } from '@/lib/background';
 
 // Force this route to be dynamic (not statically optimized)
 export const dynamic = 'force-dynamic';
@@ -38,13 +60,34 @@ interface TimeSlot {
   formatted: string;
 }
 
-interface BookingRequest {
-  date: Date;
-  time: TimeSlot;
-  formatted: {
-    date: string;
-    time: string;
-  };
+/** Parse "5:00 PM - 6:00 PM" or { startHour, endHour } into a TimeSlot. */
+function parseTimeSlot(time: any): TimeSlot | null {
+  if (typeof time === 'string') {
+    const match = time.match(/(\d{1,2})(?::\d{2})?\s*(AM|PM)?\s*-\s*(\d{1,2})(?::\d{2})?\s*(AM|PM)?/i);
+    if (!match) return null;
+
+    let startHour = parseInt(match[1]);
+    let endHour = parseInt(match[3]);
+    const startPeriod = match[2]?.toUpperCase() || 'PM';
+    const endPeriod = match[4]?.toUpperCase() || 'PM';
+
+    if (startPeriod === 'PM' && startHour !== 12) startHour += 12;
+    if (startPeriod === 'AM' && startHour === 12) startHour = 0;
+    if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
+    if (endPeriod === 'AM' && endHour === 12) endHour = 0;
+
+    return { startHour, endHour, formatted: time };
+  }
+
+  if (time && time.startHour !== undefined && time.endHour !== undefined) {
+    return {
+      startHour: time.startHour,
+      endHour: time.endHour,
+      formatted: time.formatted || `${time.startHour}:00 - ${time.endHour}:00`,
+    };
+  }
+
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -60,11 +103,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Safely parse JSON body
     let body;
     try {
       body = await request.json();
-    } catch (parseError) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid JSON body', details: 'Request body must be valid JSON' },
         { status: 400, headers: corsHeaders }
@@ -73,103 +115,54 @@ export async function POST(request: NextRequest) {
 
     const { date, time, userId } = body;
 
-    // Validate input
     if (!date || !time) {
       return NextResponse.json(
         { error: 'Missing required fields: date and time' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    // Parse date - extract the date components to avoid timezone shifts
-    // Input format: "Friday January 30, 2025" or "January 30, 2025"
-    const dateStr = date.toString();
-    // Match optional day of week, then month name, day, and year
-    const dateMatch = dateStr.match(/(?:\w+\s+)?(\w+)\s+(\d+),\s+(\d+)/);
-    if (!dateMatch) {
+    // A calendar day, not a Date. parseLabel accepts both the grid's label
+    // ("Friday August 21, 2026") and a bare "2026-08-21", and never falls back
+    // to new Date(string) — that parses ISO days as UTC midnight, which lands on
+    // the previous day for anyone west of Greenwich.
+    const day = parseLabel(String(date));
+    if (!day) {
       return NextResponse.json(
-        { error: 'Invalid date format. Expected "Month Day, Year" or "DayOfWeek Month Day, Year"' },
-        { status: 400 }
+        {
+          error: 'Invalid date format',
+          details: 'Expected "Month Day, Year", "DayOfWeek Month Day, Year", or "YYYY-MM-DD"',
+        },
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    // Extract month name, day, and year
-    const monthStr = dateMatch[1];
-    const day = parseInt(dateMatch[2]);
-    const year = parseInt(dateMatch[3]);
-
-    // Parse month name to month number (0-indexed)
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
-                        'July', 'August', 'September', 'October', 'November', 'December'];
-    const month = monthNames.findIndex(m => m === monthStr);
-
-    if (month === -1) {
-      return NextResponse.json(
-        { error: 'Invalid month name' },
-        { status: 400 }
-      );
-    }
-
-    // Create date in local timezone (not UTC) to preserve the user's intended date
-    const bookingDate = new Date(year, month, day);
-    if (isNaN(bookingDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Invalid date' },
-        { status: 400 }
-      );
-    }
-
-    // Parse time - handle both string and object formats
-    let timeSlot: TimeSlot | null = null;
-    if (typeof time === 'string') {
-      // Parse "5:00 PM - 6:00 PM" or "5 - 6 PM" format
-      const timeMatch = time.match(/(\d{1,2})(?::\d{2})?\s*(AM|PM)?\s*-\s*(\d{1,2})(?::\d{2})?\s*(AM|PM)?/i);
-      if (timeMatch) {
-        let startHour = parseInt(timeMatch[1]);
-        let endHour = parseInt(timeMatch[3]);
-        const startPeriod = timeMatch[2]?.toUpperCase() || 'PM';
-        const endPeriod = timeMatch[4]?.toUpperCase() || 'PM';
-
-        // Convert to 24-hour format
-        if (startPeriod === 'PM' && startHour !== 12) startHour += 12;
-        if (startPeriod === 'AM' && startHour === 12) startHour = 0;
-        if (endPeriod === 'PM' && endHour !== 12) endHour += 12;
-        if (endPeriod === 'AM' && endHour === 12) endHour = 0;
-
-        timeSlot = {
-          startHour,
-          endHour,
-          formatted: time,
-        };
-      }
-    } else if (time.startHour && time.endHour) {
-      timeSlot = {
-        startHour: time.startHour,
-        endHour: time.endHour,
-        formatted: time.formatted || `${time.startHour}:00 - ${time.endHour}:00`,
-      };
-    }
-
+    const timeSlot = parseTimeSlot(time);
     if (!timeSlot) {
       return NextResponse.json(
         { error: 'Invalid time format. Expected "5:00 PM - 6:00 PM" or {startHour, endHour}' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    // Create booking request - preserve original date string format for availability matching
-    const bookingRequest: BookingRequest = {
-      date: bookingDate,
-      time: timeSlot,
-      formatted: {
-        date: dateStr, // Use original date string (e.g., "Friday January 30, 2025")
-        time: timeSlot.formatted,
-      },
-    };
+    // The booking site drops a day from its calendar at midnight Eastern and
+    // refuses same-day reservations, so reject days it will no longer accept
+    // before spending 60s of browser time discovering that.
+    if (!isBookable(day)) {
+      const reason = unbookableReason(day);
+      const details =
+        reason === 'past'
+          ? `${formatFriendly(day)} has already passed.`
+          : reason === 'site-rolled-over'
+          ? `The booking site has already moved on to ${formatFriendly(siteToday())}, so ${formatFriendly(day)} can no longer be reserved.`
+          : `The booking site does not allow same-day reservations.`;
 
-    console.log(`🏀 Processing booking: ${bookingRequest.formatted.date} at ${bookingRequest.formatted.time}`);
+      return NextResponse.json(
+        { error: 'That day can no longer be booked', reason, details, day },
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
-    // Get user info for booking record
     const user = getUser(userId || null);
     if (!user) {
       return NextResponse.json(
@@ -178,46 +171,113 @@ export async function POST(request: NextRequest) {
       );
     }
 
-
-
-    // Run booking directly via BookingService (uses env variables for credentials)
-    const bookingService = new BookingService(userId || null);
-    const result = await bookingService.bookTimeSlot(bookingRequest);
-
-    // If booking succeeded, save to Supabase and update availability
-    if (result.success) {
-      try {
-        // Save booking record
-        await saveBooking(
-          user.id,
-          user.email,
-          bookingDate,
-          timeSlot.startHour,
-          timeSlot.endHour,
-          timeSlot.formatted,
-          { bookingResult: result }
-        );
-
-        // Update availability snapshot to remove the booked slot
-        await markSlotAsBooked(bookingRequest.formatted.date, timeSlot.formatted);
-
-        console.log('✅ Booking saved to database and availability updated');
-      } catch (saveError: any) {
-        // Log but don't fail - the booking was successful on the amenity site
-        console.error('⚠️ Failed to save booking to database:', saveError.message);
-      }
+    // One booking per week, evaluated against the week the requested day falls
+    // in — not the week it happens to be right now.
+    const existing = await getUserBookingThisWeek(user.id, day);
+    if (existing) {
+      return NextResponse.json(
+        {
+          error: 'You already have a booking that week',
+          details: `${existing.time_formatted} on ${formatFriendly(existing.booking_date)}`,
+          existingBooking: existing,
+        },
+        { status: 409, headers: corsHeaders }
+      );
     }
 
-    return NextResponse.json({
-      success: result.success,
-      message: result.success ? 'Booking completed successfully' : 'Booking failed',
-      data: result,
-    }, { headers: corsHeaders });
+    // Don't start a second browser run for someone who already has one going —
+    // a double tap, or a reload followed by another tap, would otherwise book twice.
+    const inFlight = await findActiveJob('booking', user.id);
+    if (inFlight) {
+      return NextResponse.json(
+        {
+          success: true,
+          jobId: inFlight.id,
+          status: inFlight.status,
+          alreadyRunning: true,
+          message: 'A booking is already in progress',
+        },
+        { status: 202, headers: corsHeaders }
+      );
+    }
 
-  } catch (error: any) {
-    console.error('❌ Booking failed:', error);
+    const job = await createJob('booking', user.id, {
+      day,
+      label: formatLabel(day),
+      weekStart: weekStartOf(day),
+      time: timeSlot,
+      userEmail: user.email,
+    });
+
+    // Hand the work to the background and answer the client now. Everything
+    // below this point outlives the HTTP response.
+    runInBackground(
+      runJob(job.id, async () => {
+        console.log(`🏀 Booking ${formatLabel(day)} at ${timeSlot.formatted} for ${user.email}`);
+
+        const bookingService = new BookingService(user.id);
+        const result = await bookingService.bookTimeSlot({
+          day,
+          time: timeSlot,
+          formatted: { date: formatLabel(day), time: timeSlot.formatted },
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || result.details || 'Booking failed on the amenity site');
+        }
+
+        // Record it. A failure here must not be reported as a failed booking —
+        // the reservation exists on the site either way.
+        try {
+          await saveBooking(
+            user.id,
+            user.email,
+            day,
+            timeSlot.startHour,
+            timeSlot.endHour,
+            timeSlot.formatted,
+            { bookingResult: result }
+          );
+          await markSlotAsBooked(day, timeSlot.formatted);
+          console.log('✅ Booking saved and availability updated');
+        } catch (saveError: any) {
+          console.error('⚠️ Booked on the site but failed to record it:', saveError.message);
+          return {
+            ...result,
+            day,
+            label: formatLabel(day),
+            time: timeSlot.formatted,
+            persisted: false,
+            warning: `Booked on the amenity site, but saving it here failed: ${saveError.message}`,
+          };
+        }
+
+        return {
+          ...result,
+          day,
+          label: formatLabel(day),
+          time: timeSlot.formatted,
+          persisted: true,
+        };
+      })
+    );
+
     return NextResponse.json(
-      { error: 'Failed to process booking', details: error.message },
+      {
+        success: true,
+        jobId: job.id,
+        status: job.status,
+        day,
+        label: formatLabel(day),
+        time: timeSlot.formatted,
+        message: 'Booking started',
+      },
+      { status: 202, headers: corsHeaders }
+    );
+  } catch (error: any) {
+    console.error('❌ Could not start booking:', error);
+    return NextResponse.json(
+      { error: 'Failed to start booking', details: error.message },
       { status: 500, headers: corsHeaders }
     );
   }

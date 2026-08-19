@@ -188,3 +188,53 @@ BEGIN
   RETURN booking_count > 0;
 END;
 $$ LANGUAGE plpgsql;
+
+-- =============================================
+-- BACKGROUND JOBS
+-- =============================================
+-- Availability refreshes and bookings drive a headless browser and take tens of
+-- seconds. They run server-side and record progress here, so the work survives
+-- the browser tab being backgrounded or closed and any client can pick the
+-- result back up later.
+
+-- user_id is NULL for jobs that are not tied to one user (e.g. cron refreshes).
+-- payload is what was requested (date, time slot, ...); result is what came
+-- back on success; error is the failure message, if any.
+CREATE TABLE IF NOT EXISTS jobs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('refresh', 'booking')),
+  status TEXT NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'running', 'succeeded', 'failed')),
+  user_id INTEGER,
+  payload JSONB,
+  result JSONB,
+  error TEXT,
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ
+);
+
+-- Clients poll for their own recent jobs, newest first.
+CREATE INDEX IF NOT EXISTS idx_jobs_user_created
+  ON jobs(user_id, created_at DESC);
+
+-- Finding still-running work (and reaping abandoned work) filters on status.
+CREATE INDEX IF NOT EXISTS idx_jobs_status_created
+  ON jobs(status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_jobs_type_status
+  ON jobs(type, status);
+
+ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role can do everything on jobs"
+  ON jobs
+  FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Allow anonymous reads on jobs"
+  ON jobs
+  FOR SELECT
+  USING (true);

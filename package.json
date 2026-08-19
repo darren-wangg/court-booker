@@ -7,7 +7,8 @@
   "scripts": {
     "check": "pnpm --filter @court-booker/shared build && ts-node -r tsconfig-paths/register scripts/check-now.ts",
     "build": "pnpm --filter @court-booker/shared build",
-    "build:all": "pnpm -r build"
+    "build:all": "pnpm -r build",
+    "test:dates": "pnpm --filter @court-booker/shared build && ts-node -r tsconfig-paths/register packages/shared/__tests__/dates.test.ts"
   },
   "dependencies": {
     "@court-booker/shared": "workspace:*",

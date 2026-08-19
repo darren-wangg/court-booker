@@ -2,6 +2,7 @@
 
 import { getUser, User, amenityUrl } from '../config';
 import { PlaywrightBrowser } from '../utils/playwrightBrowser';
+import { Ymd, formatLabel, splitYmd } from '../utils/dates';
 
 interface TimeSlot {
   startHour: number;
@@ -10,7 +11,8 @@ interface TimeSlot {
 }
 
 interface BookingRequest {
-  date: Date;
+  /** The calendar day to book, "YYYY-MM-DD". */
+  day: Ymd;
   time: TimeSlot;
   formatted: {
     date: string;
@@ -286,9 +288,9 @@ export default class BookingService {
   /**
    * Navigate to the booking page for a specific date
    */
-  async navigateToBookingPage(targetDate: Date): Promise<boolean> {
+  async navigateToBookingPage(targetDay: Ymd): Promise<boolean> {
     try {
-      console.log(`📅 Navigating to booking page for ${targetDate.toLocaleDateString()}`);
+      console.log(`📅 Navigating to booking page for ${formatLabel(targetDay)}`);
       
       // Wait for the reservation date input field
       await this.page.waitForSelector('#resv-date', { timeout: 10000 });
@@ -301,14 +303,13 @@ export default class BookingService {
       await this.page.waitForSelector('#ui-datepicker-div', { timeout: 5000 });
       await this.page.waitForSelector('.ui-datepicker-calendar', { timeout: 5000 });
       
-      // Extract the target date components
-      const targetDay = targetDate.getDate();
-      const targetMonth = targetDate.getMonth(); // 0-based (0 = January)
-      const targetYear = targetDate.getFullYear();
-      
-      console.log(`Looking for date: ${targetMonth + 1}/${targetDay}/${targetYear}`);
-      console.log(`Target date object:`, targetDate);
-      console.log(`Target date ISO string:`, targetDate.toISOString());
+      // Read the components straight off the calendar day. Previously this
+      // called getDate()/getMonth() on a Date, which resolves in the process
+      // timezone and could pick the neighbouring day.
+      const { year: targetYear, month, day: targetDayOfMonth } = splitYmd(targetDay);
+      const targetMonth = month - 1; // jQuery UI datepicker uses 0-based months
+
+      console.log(`Looking for date: ${month}/${targetDayOfMonth}/${targetYear} (${targetDay})`);
       
       // Find and click the correct date cell in the calendar.
       // The calendar may open on the current month, so navigate forward if needed.
@@ -336,7 +337,7 @@ export default class BookingService {
             }
           }
           return false;
-        }, { day: targetDay, month: targetMonth, year: targetYear });
+        }, { day: targetDayOfMonth, month: targetMonth, year: targetYear });
 
         if (dateFound) break;
 
@@ -353,7 +354,7 @@ export default class BookingService {
       }
 
       if (!dateFound) {
-        throw new Error(`Date ${targetMonth + 1}/${targetDay}/${targetYear} not found in calendar`);
+        throw new Error(`Date ${month}/${targetDayOfMonth}/${targetYear} not found in calendar`);
       }
       
       // Wait for calendar to close
@@ -504,7 +505,7 @@ export default class BookingService {
       }
       
       await this.login();
-      await this.navigateToBookingPage(bookingRequest.date);
+      await this.navigateToBookingPage(bookingRequest.day);
       await this.selectTimeSlot(bookingRequest.time);
       const result = await this.completeBooking();
       

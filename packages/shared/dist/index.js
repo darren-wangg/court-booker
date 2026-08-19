@@ -24,7 +24,9 @@ Object.defineProperty(exports, "ReservationChecker", { enumerable: true, get: fu
 var bookingService_1 = require("./services/bookingService");
 Object.defineProperty(exports, "BookingService", { enumerable: true, get: function () { return __importDefault(bookingService_1).default; } });
 // Export utils
+__exportStar(require("./utils/dates"), exports);
 __exportStar(require("./utils/supabaseClient"), exports);
+__exportStar(require("./utils/jobs"), exports);
 var playwrightBrowser_1 = require("./utils/playwrightBrowser");
 Object.defineProperty(exports, "PlaywrightBrowser", { enumerable: true, get: function () { return playwrightBrowser_1.PlaywrightBrowser; } });
 // Export config

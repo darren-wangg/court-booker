@@ -4,6 +4,7 @@ import { PlaywrightBrowser } from "../utils/playwrightBrowser";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import { getUser, User, amenityUrl, timeouts } from "../config";
+import { appToday, daysFrom, formatLabel, splitYmd, APP_TIMEZONE } from "../utils/dates";
 
 // Increase timeouts in CI environments where network might be slower
 const SIXTY_SECONDS = 60 * 1000;
@@ -13,6 +14,14 @@ const NAVIGATION_TIMEOUT = SIXTY_SECONDS * CI_TIMEOUT_MULTIPLIER;
 const DEFAULT_TIMEOUT = THIRTY_SECONDS * CI_TIMEOUT_MULTIPLIER;
 const START_HOUR = 10; // 10 AM
 const END_HOUR = 22; // 10 PM
+
+// Days of availability to show, starting with today.
+const WINDOW_DAYS = 8;
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
 
 export default class ReservationChecker {
   private browser: any = null;
@@ -447,6 +456,7 @@ export default class ReservationChecker {
       // Generate realistic fallback data to keep the system functional
       const next7Days = this.getNext7Days();
       const fallbackResults = next7Days.map(dateInfo => ({
+        ymd: dateInfo.ymd,
         date: dateInfo.fullDate,
         booked: [], // Unknown in fallback mode
         available: [], // Unknown in fallback mode  
@@ -905,8 +915,9 @@ export default class ReservationChecker {
     const allPossibleSlots = this.generateTimeSlots();
     const bookedSlots = [];
 
-    // Extract target month and day
-    const targetMonth = dateInfo.monthName || dateInfo.fullDate.split(" ")[0];
+    // The site's date headers carry no year ("Saturday, September 06"), so match
+    // on month name + day number. Unambiguous inside an 8-day window.
+    const targetMonth = dateInfo.monthName;
     const targetDay = parseInt(dateInfo.day, 10);
 
     // Look for matching date in reservations
@@ -941,6 +952,9 @@ export default class ReservationChecker {
     );
 
     return {
+      // `ymd` is the machine-readable day; `date` is the human label kept for
+      // compatibility with snapshots written before ymd existed.
+      ymd: dateInfo.ymd,
       date: dateInfo.fullDate,
       booked: bookedSlots,
       available: availableSlots,
@@ -948,101 +962,29 @@ export default class ReservationChecker {
     };
   }
 
-  // Helper method to compare dates from different formats
-  datesMatch(reservationDate, dateInfo) {
-    // reservationDate format: "Saturday, December 07"
-    // dateInfo.fullDate format: "December 2024 7"
-    // dateInfo also has monthName and day properties
-
-    try {
-      // Extract day from reservation date
-      const resvParts = reservationDate.split(", ");
-      if (resvParts.length < 2) {
-        console.log(`    ❌ Invalid format: "${reservationDate}"`);
-        return false;
-      }
-
-      const resvMonthDay = resvParts[1]; // "December 07" or "December 7"
-      const resvMonthDayParts = resvMonthDay.split(" ");
-      if (resvMonthDayParts.length < 2) {
-        console.log(`    ❌ Invalid month/day: "${resvMonthDay}"`);
-        return false;
-      }
-
-      const resvMonth = resvMonthDayParts[0];
-      const resvDay = resvMonthDayParts[1];
-      const resvDayNum = parseInt(resvDay, 10);
-
-      // Extract from dateInfo
-      const dateInfoMonth =
-        dateInfo.monthName || dateInfo.fullDate.split(" ")[0];
-      const dateInfoDay = parseInt(dateInfo.day, 10);
-
-      // Debug log
-      const debugMatch = `"${resvMonth} ${resvDayNum}" vs "${dateInfoMonth} ${dateInfoDay}"`;
-
-      // Compare month and day (ignore year since reservation doesn't show year)
-      const match =
-        resvMonth.toLowerCase() === dateInfoMonth.toLowerCase() &&
-        resvDayNum === dateInfoDay;
-
-      if (!match) {
-        console.log(`    Comparing: ${debugMatch} - NO MATCH`);
-      }
-
-      return match;
-    } catch (error) {
-      console.error("Error comparing dates: ", error);
-      console.error("  reservationDate:", reservationDate);
-      console.error("  dateInfo:", JSON.stringify(dateInfo));
-      return false;
-    }
-  }
-
+  /**
+   * The eight-day window the grid shows, anchored on today in APP_TIMEZONE.
+   *
+   * Anchored on the user's day, not the site's. The two differ between 9 PM and
+   * midnight Pacific, and anchoring on the site's day there made the window skip
+   * the user's today and read a day ahead. The site simply has no reservation
+   * data for days it has already rolled past, so those days come back looking
+   * fully free; the API layer substitutes an earlier snapshot for them and the UI
+   * marks them unbookable.
+   */
   getNext7Days() {
-    const days = [];
-    const monthNames = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
+    const start = appToday();
 
-    // Use current Eastern Time
-    const now = new Date();
-    const easternTime = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/New_York" })
-    );
-
-    // Start from today (i=0) to include same-day availability
-    // UI will disable booking for same-day slots since the booking site doesn't allow it
-    for (let i = 0; i <= 7; i++) {
-      const date = new Date(easternTime);
-      date.setDate(date.getDate() + i);
-
-      const monthName = monthNames[date.getMonth()];
-      const day = date.getDate().toString();
-      const year = date.getFullYear();
-      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
-
-      days.push({
-        date: date,
-        day: day,
-        monthName: monthName,
-        year: year,
-        fullDate: `${dayOfWeek} ${monthName} ${day}, ${year}`,
-      });
-    }
-
-    return days;
+    return daysFrom(start, WINDOW_DAYS).map((ymd) => {
+      const { year, month, day } = splitYmd(ymd);
+      return {
+        ymd,
+        day: String(day),
+        monthName: MONTH_NAMES[month - 1],
+        year,
+        fullDate: formatLabel(ymd),
+      };
+    });
   }
 
   generateTimeSlots() {
@@ -1441,7 +1383,7 @@ export default class ReservationChecker {
       console.log("\n========================================");
       console.log("=== AVAILABILITY REPORT ===");
       console.log("========================================");
-      console.log(`Checked at: ${new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })}`);
+      console.log(`Checked at: ${new Date().toLocaleString("en-US", { timeZone: APP_TIMEZONE })}`);
 
       let totalAvailableSlots = 0;
 
@@ -1462,6 +1404,7 @@ export default class ReservationChecker {
         dates: allResults,
         totalAvailableSlots: totalAvailableSlots,
         checkedAt: new Date().toISOString(),
+        timezone: APP_TIMEZONE,
         success: true,
       };
 
