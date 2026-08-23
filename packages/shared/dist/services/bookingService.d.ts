@@ -45,7 +45,27 @@ export default class BookingService {
     completeBooking(): Promise<{
         success: boolean;
         message: any;
+        error?: undefined;
+    } | {
+        success: boolean;
+        error: any;
+        message?: undefined;
     }>;
+    /**
+     * True for errors that mean the Browserless session died mid-operation
+     * (typically the free plan's 60s cap being hit), not a real form/selector
+     * problem. Worth reconnecting and retrying; anything else isn't.
+     */
+    isRecoverableConnectionError(error: any): boolean;
+    /**
+     * Login, navigate to the day, and pick the time slot — restarting the browser
+     * session and redoing all three if the connection drops partway through.
+     * Safe to retry in full because nothing has been submitted to the site yet.
+     * completeBooking() is deliberately outside this retry loop: once the submit
+     * button has been clicked, we can no longer tell a dropped connection apart
+     * from an unconfirmed success, and retrying could double-book the court.
+     */
+    setupBooking(bookingRequest: BookingRequest, maxAttempts?: number): Promise<void>;
     /**
      * Main booking method
      */

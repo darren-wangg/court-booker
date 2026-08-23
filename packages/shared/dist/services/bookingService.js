@@ -379,11 +379,81 @@ class BookingService {
                 console.log('✅ Booking completed (redirected away from booking page)');
                 return { success: true, message: 'Booking completed successfully' };
             }
+            // Still on the booking page with no success message: the submission may
+            // have been rejected (e.g. "you already have an upcoming reservation",
+            // "slot no longer available"). Check for an explicit error/validation
+            // message before assuming success — previously this fell straight through
+            // to a false "success", which is how a rejected booking got silently
+            // recorded as confirmed.
+            const errorSelectors = [
+                '.validation-summary-errors',
+                '.alert-danger',
+                '.error-message',
+                '.field-validation-error',
+            ];
+            for (const selector of errorSelectors) {
+                try {
+                    const errorEl = await this.page.$(selector);
+                    if (errorEl) {
+                        const message = (await this.page.evaluate((el) => el.textContent, errorEl))?.trim();
+                        if (message) {
+                            console.error(`❌ Booking rejected by site: ${message}`);
+                            return { success: false, error: message };
+                        }
+                    }
+                }
+                catch (e) {
+                    // Continue to next selector
+                }
+            }
             return { success: true, message: 'Booking completed (no confirmation message found)' };
         }
         catch (error) {
             console.error('Error completing booking:', error);
             throw error;
+        }
+    }
+    /**
+     * True for errors that mean the Browserless session died mid-operation
+     * (typically the free plan's 60s cap being hit), not a real form/selector
+     * problem. Worth reconnecting and retrying; anything else isn't.
+     */
+    isRecoverableConnectionError(error) {
+        const message = error?.message || '';
+        return (message.includes('Target page, context or browser has been closed') ||
+            message.includes('Protocol error') ||
+            message.includes('Session closed') ||
+            message.includes('Connection closed'));
+    }
+    /**
+     * Login, navigate to the day, and pick the time slot — restarting the browser
+     * session and redoing all three if the connection drops partway through.
+     * Safe to retry in full because nothing has been submitted to the site yet.
+     * completeBooking() is deliberately outside this retry loop: once the submit
+     * button has been clicked, we can no longer tell a dropped connection apart
+     * from an unconfirmed success, and retrying could double-book the court.
+     */
+    async setupBooking(bookingRequest, maxAttempts = 2) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                await this.login();
+                await this.navigateToBookingPage(bookingRequest.day);
+                await this.selectTimeSlot(bookingRequest.time);
+                return;
+            }
+            catch (error) {
+                if (!this.isRecoverableConnectionError(error) || attempt === maxAttempts) {
+                    throw error;
+                }
+                console.log(`⚠️ Lost the browser connection during setup (attempt ${attempt}/${maxAttempts}): ${error.message}`);
+                console.log('🔄 Reconnecting and starting over...');
+                await this.cleanup();
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                await this.initialize();
+                if (this.resourceConstraint) {
+                    throw error; // No browser to retry with — surface the original error.
+                }
+            }
         }
     }
     /**
@@ -412,10 +482,28 @@ class BookingService {
                     retryable: true
                 };
             }
-            await this.login();
-            await this.navigateToBookingPage(bookingRequest.day);
-            await this.selectTimeSlot(bookingRequest.time);
-            const result = await this.completeBooking();
+            await this.setupBooking(bookingRequest);
+            let result;
+            try {
+                result = await this.completeBooking();
+            }
+            catch (error) {
+                if (this.isRecoverableConnectionError(error)) {
+                    // The connection died after the submit click — we don't know whether
+                    // the site received it. Never auto-retry this step; that's how a
+                    // dropped connection turns into a duplicate reservation.
+                    return {
+                        success: false,
+                        bookingRequest,
+                        error: 'Lost connection to the browser while confirming the booking. It may or may not have gone through — check your reservations on the amenity site before trying again.',
+                        uncertain: true,
+                    };
+                }
+                throw error;
+            }
+            if (!result.success) {
+                return { success: false, bookingRequest, error: result.error };
+            }
             return {
                 success: true,
                 bookingRequest,
